@@ -100,7 +100,25 @@ def app(arquivo, filtros):
                 else:
                     consolidado_filtrado = consolidado
 
-                total_usuarios = df['UsuarioID'].nunique()
+                # Calcular total_usuarios a partir da aba UsuariosAmbientes, considerando DataCadastro <= data_fi e filtros
+                df_usuarios = df_ambientes.copy()
+                if 'DataCadastro' in df_usuarios.columns:
+                    df_usuarios['DataCadastro'] = pd.to_datetime(df_usuarios['DataCadastro'], dayfirst=True, errors='coerce').dt.date
+                if filtros.get('ambiente'):
+                    df_usuarios = df_usuarios[df_usuarios['NomeAmbiente'].isin(filtros['ambiente'])]
+                if filtros.get('perfil'):
+                    df_usuarios = df_usuarios[df_usuarios['PerfilNaTrilha'].isin(filtros['perfil'])]
+                if filtros.get('trilha'):
+                    df_usuarios = df_usuarios[df_usuarios['NomeTrilha'].isin(filtros['trilha'])]
+                if filtros.get('modulo'):
+                    df_usuarios = df_usuarios[df_usuarios['NomeModulo'].isin(filtros['modulo'])]
+                if filtros.get('grupo'):
+                    df_usuarios = df_usuarios[df_usuarios['TodosGruposUsuario'].isin(filtros['grupo'])]
+                if isinstance(periodo, tuple) and len(periodo) == 2 and 'DataCadastro' in df_usuarios.columns:
+                    _, data_fi = periodo
+                    data_fi = pd.to_datetime(data_fi).date()
+                    df_usuarios = df_usuarios[df_usuarios['DataCadastro'] <= data_fi]
+                total_usuarios = df_usuarios['UsuarioID'].nunique() if 'UsuarioID' in df_usuarios.columns else 0
                 total_ambientes = df['NomeAmbiente'].nunique() if 'NomeAmbiente' in df.columns else 0
                 total_perfis = df['PerfilNaTrilha'].nunique() if 'PerfilNaTrilha' in df.columns else 0
                 participacoes_inicio_raw = df_ambientes.dropna(subset=['DataInicioModulo']).copy()
@@ -169,7 +187,7 @@ def app(arquivo, filtros):
                 col1, col2, col3, col4, col5 = st.columns(5)
                 col1.metric("Total de Usuários", total_usuarios)
                 with col1.expander("Ver detalhes usuários"):
-                    st.dataframe(df[['UsuarioID']].drop_duplicates())
+                    st.dataframe(df_usuarios[['UsuarioID', 'DataCadastro']].drop_duplicates())
 
                 col2.metric("Total de Ambientes", total_ambientes)
                 with col2.expander("Ver detalhes ambientes"):

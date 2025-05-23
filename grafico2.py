@@ -84,7 +84,11 @@ def app(arquivo, filtros):
             colg1, colg2, colg3 = st.columns([1,2,1])
             with colg1:
                 st.metric("Usuários", total_usuarios)
+                with st.expander("Ver detalhes usuários"):
+                    st.dataframe(usuarios_cadastrados)
                 st.metric("Usuários c/ acesso", usuarios_com_acesso)
+                with st.expander("Ver detalhes usuários c/ acesso"):
+                    st.dataframe(df_acessos_filtros)
             with colg2:
                 st.plotly_chart(fig, use_container_width=True)
             with colg3:
