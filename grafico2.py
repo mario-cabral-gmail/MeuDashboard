@@ -4,21 +4,12 @@ import altair as alt
 import locale
 import plotly.graph_objects as go
 
-# Configuração da página
-st.set_page_config(page_title="Dashboard de Acessos", layout="wide", page_icon="📊")
-
-
-# Título e descrição
-st.title("📊 Dashboard de Acessos")
-st.markdown("Visualize os acessos por dia, ambiente, perfil, trilha, módulo e grupo de forma interativa e moderna.")
-
-def app():
+def app(arquivo, filtros):
     st.title("Engajamento")
     try:
         locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
     except:
         pass
-    arquivo = st.file_uploader("Faça upload da planilha Excel", type=["xlsx"])
     if arquivo:
         abas = pd.read_excel(arquivo, sheet_name=None)
         if 'Acessos' in abas and 'UsuariosAmbientes' in abas:
@@ -28,52 +19,28 @@ def app():
                 df_acessos['DataAcesso'] = pd.to_datetime(df_acessos['DataAcesso'], dayfirst=True, errors='coerce').dt.date
             if 'DataCadastro' in df_ambientes.columns:
                 df_ambientes['DataCadastro'] = pd.to_datetime(df_ambientes['DataCadastro'], dayfirst=True, errors='coerce').dt.date
-            st.markdown("### Filtros")
-            colf1, colf2, colf3, colf4, colf5 = st.columns(5)
-            ambiente_selecionado = perfil_selecionado = trilha_selecionada = modulo_selecionado = grupo_selecionado = None
-            if 'NomeAmbiente' in df_ambientes.columns:
-                ambientes_unicos = sorted(df_ambientes['NomeAmbiente'].dropna().unique())
-                ambiente_selecionado = colf1.multiselect("Filtrar por ambiente:", ambientes_unicos)
-            if 'PerfilNaTrilha' in df_ambientes.columns:
-                perfis_unicos = sorted(df_ambientes['PerfilNaTrilha'].dropna().unique())
-                default_perfis = [p for p in ['Obrigatório', 'Participa'] if p in perfis_unicos]
-                perfil_selecionado = colf2.multiselect("Filtrar por perfil na trilha:", perfis_unicos, default=default_perfis)
-            if 'NomeTrilha' in df_ambientes.columns:
-                trilhas_unicas = sorted(df_ambientes['NomeTrilha'].dropna().unique())
-                trilha_selecionada = colf3.multiselect("Filtrar por trilha:", trilhas_unicas)
-            if 'NomeModulo' in df_ambientes.columns:
-                modulos_unicos = sorted(df_ambientes['NomeModulo'].dropna().unique())
-                modulo_selecionado = colf4.multiselect("Filtrar por módulo:", modulos_unicos)
-            if 'TodosGruposUsuario' in df_ambientes.columns:
-                grupos_unicos = sorted(df_ambientes['TodosGruposUsuario'].dropna().unique())
-                grupo_selecionado = colf5.multiselect("Filtrar por grupo:", grupos_unicos)
+            # Aplicar filtros recebidos
             df_amb_filtros = df_ambientes.copy()
-            if ambiente_selecionado:
-                df_amb_filtros = df_amb_filtros[df_amb_filtros['NomeAmbiente'].isin(ambiente_selecionado)]
-            if perfil_selecionado:
-                df_amb_filtros = df_amb_filtros[df_amb_filtros['PerfilNaTrilha'].isin(perfil_selecionado)]
-            if trilha_selecionada:
-                df_amb_filtros = df_amb_filtros[df_amb_filtros['NomeTrilha'].isin(trilha_selecionada)]
-            if modulo_selecionado:
-                df_amb_filtros = df_amb_filtros[df_amb_filtros['NomeModulo'].isin(modulo_selecionado)]
-            if grupo_selecionado:
-                df_amb_filtros = df_amb_filtros[df_amb_filtros['TodosGruposUsuario'].isin(grupo_selecionado)]
+            if filtros.get('ambiente'):
+                df_amb_filtros = df_amb_filtros[df_amb_filtros['NomeAmbiente'].isin(filtros['ambiente'])]
+            if filtros.get('perfil'):
+                df_amb_filtros = df_amb_filtros[df_amb_filtros['PerfilNaTrilha'].isin(filtros['perfil'])]
+            if filtros.get('trilha'):
+                df_amb_filtros = df_amb_filtros[df_amb_filtros['NomeTrilha'].isin(filtros['trilha'])]
+            if filtros.get('modulo'):
+                df_amb_filtros = df_amb_filtros[df_amb_filtros['NomeModulo'].isin(filtros['modulo'])]
+            if filtros.get('grupo'):
+                df_amb_filtros = df_amb_filtros[df_amb_filtros['TodosGruposUsuario'].isin(filtros['grupo'])]
             data_inicio_total = df_amb_filtros['DataCadastro'].min() if 'DataCadastro' in df_amb_filtros.columns else None
             data_fim_total = df_acessos['DataAcesso'].max() if 'DataAcesso' in df_acessos.columns else None
-            st.markdown("### Período")
-            if data_inicio_total and data_fim_total:
-                periodo = st.date_input(
-                    "Selecione o período:",
-                    value=(data_inicio_total, data_fim_total),
-                    min_value=data_inicio_total,
-                    max_value=data_fim_total,
-                    format="DD/MM/YYYY"
-                )
-            else:
-                periodo = None
+            # Usar o período recebido nos filtros
+            periodo = filtros.get('periodo')
             if periodo and isinstance(periodo, tuple) and len(periodo) == 2:
                 data_ini, data_fi = periodo
-                usuarios_cadastrados = df_amb_filtros[(df_amb_filtros['DataCadastro'] >= data_ini) & (df_amb_filtros['DataCadastro'] <= data_fi)]
+                data_ini = pd.to_datetime(data_ini).date()
+                data_fi = pd.to_datetime(data_fi).date()
+                df_amb_filtros['DataCadastro'] = pd.to_datetime(df_amb_filtros['DataCadastro']).dt.date
+                usuarios_cadastrados = df_amb_filtros[df_amb_filtros['DataCadastro'] <= data_fi]
             else:
                 usuarios_cadastrados = df_amb_filtros
             total_usuarios = usuarios_cadastrados['UsuarioID'].nunique() if 'UsuarioID' in usuarios_cadastrados.columns else 0
@@ -126,3 +93,6 @@ def app():
             st.error("Sua planilha precisa ter as abas 'Acessos' e 'UsuariosAmbientes'.")
     else:
         st.info("Por favor, faça upload da planilha Excel original.")
+
+if __name__ == "__main__":
+    st.info("Este arquivo deve ser importado e chamado via dashboard.py para funcionar corretamente.")
