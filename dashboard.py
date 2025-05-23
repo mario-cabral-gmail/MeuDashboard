@@ -34,6 +34,8 @@ def get_filtros(arquivo):
         datas_inicio_modulo = pd.to_datetime(df_ambientes['DataInicioModulo'], dayfirst=True, errors='coerce').dropna() if 'DataInicioModulo' in df_ambientes.columns else pd.Series([])
         data_inicio_total = min(datas_acesso.min(), datas_inicio_modulo.min()) if not datas_inicio_modulo.empty else datas_acesso.min()
         data_fim_total = max(datas_acesso.max(), datas_inicio_modulo.max()) if not datas_inicio_modulo.empty else datas_acesso.max()
+        data_inicio_total = pd.to_datetime(data_inicio_total).date()
+        data_fim_total = pd.to_datetime(data_fim_total).date()
         st.markdown("### Período")
         ano_atual = data_fim_total.year
         ano_passado = ano_atual - 1
@@ -41,6 +43,11 @@ def get_filtros(arquivo):
         fim_ano_atual = pd.to_datetime(f"31/12/{ano_atual}", dayfirst=True).date()
         inicio_ano_passado = pd.to_datetime(f"01/01/{ano_passado}", dayfirst=True).date()
         fim_ano_passado = pd.to_datetime(f"31/12/{ano_passado}", dayfirst=True).date()
+        # Garantir que todos são datetime.date
+        inicio_ano_atual = pd.to_datetime(inicio_ano_atual).date()
+        fim_ano_atual = pd.to_datetime(fim_ano_atual).date()
+        inicio_ano_passado = pd.to_datetime(inicio_ano_passado).date()
+        fim_ano_passado = pd.to_datetime(fim_ano_passado).date()
         inicio_ano_atual = max(inicio_ano_atual, data_inicio_total)
         fim_ano_atual = min(fim_ano_atual, data_fim_total)
         inicio_ano_passado = max(inicio_ano_passado, data_inicio_total)
