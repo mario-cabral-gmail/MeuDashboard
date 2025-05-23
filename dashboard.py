@@ -35,12 +35,24 @@ def get_filtros(arquivo):
         data_inicio_total = min(datas_acesso.min(), datas_inicio_modulo.min()) if not datas_inicio_modulo.empty else datas_acesso.min()
         data_fim_total = max(datas_acesso.max(), datas_inicio_modulo.max()) if not datas_inicio_modulo.empty else datas_acesso.max()
         st.markdown("### Período")
+        ano_atual = data_fim_total.year
+        ano_passado = ano_atual - 1
+        inicio_ano_atual = pd.to_datetime(f"01/01/{ano_atual}", dayfirst=True).date()
+        fim_ano_atual = pd.to_datetime(f"31/12/{ano_atual}", dayfirst=True).date()
+        inicio_ano_passado = pd.to_datetime(f"01/01/{ano_passado}", dayfirst=True).date()
+        fim_ano_passado = pd.to_datetime(f"31/12/{ano_passado}", dayfirst=True).date()
+        inicio_ano_atual = max(inicio_ano_atual, data_inicio_total)
+        fim_ano_atual = min(fim_ano_atual, data_fim_total)
+        inicio_ano_passado = max(inicio_ano_passado, data_inicio_total)
+        fim_ano_passado = min(fim_ano_passado, data_fim_total)
         opcoes_periodo = {
             'Período completo': (data_inicio_total, data_fim_total),
             'Últimos 7 dias': (data_fim_total - pd.Timedelta(days=6), data_fim_total),
             'Últimos 30 dias': (data_fim_total - pd.Timedelta(days=29), data_fim_total),
             'Este mês': (data_fim_total.replace(day=1), data_fim_total),
             'Mês passado': ((data_fim_total.replace(day=1) - pd.Timedelta(days=1)).replace(day=1), data_fim_total.replace(day=1) - pd.Timedelta(days=1)),
+            'Este ano': (inicio_ano_atual, fim_ano_atual),
+            'Ano passado': (inicio_ano_passado, fim_ano_passado),
             'Personalizado': None
         }
         escolha_periodo = st.selectbox("Selecione um período rápido ou escolha personalizado:", list(opcoes_periodo.keys()), index=0)
