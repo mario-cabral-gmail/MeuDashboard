@@ -1,12 +1,28 @@
 import streamlit as st
-import grafico1
-import grafico2
+import engajamento_01 as engajamento
+import acessos_02 as acessos
+import acessos_dispositivo_03 as acessos_dispositivo
+import performance_modulos_04 as performance_modulos
+import engajamento_modulos_05 as engajamento_modulos
+import horas_treinadas_06 as horas_treinadas
+import ambientes_mais_participacoes_07 as ambientes_mais_participacoes
+import usuarios_mais_engajados_08 as usuarios_mais_engajados
 import pandas as pd
 import altair as alt
 import locale
 
 # Configuração da página
 st.set_page_config(page_title="Dashboard de Acessos", layout="wide", page_icon="📊")
+st.title("Dashboard")
+
+# Substituir o selectbox de frequência global para ficar ao lado do filtro de período
+# Encontrar o local onde o filtro de período é exibido
+# Substituir por:
+# col_periodo, col_freq = st.columns([3,1])
+# with col_periodo:
+#     escolha_periodo = st.selectbox(...)
+# with col_freq:
+#     frequencia = st.selectbox(...)
 
 arquivo = st.file_uploader("Faça upload da planilha Excel", type=["xlsx"])
 
@@ -16,6 +32,17 @@ def get_filtros(arquivo):
     if 'UsuariosAmbientes' in abas and 'Acessos' in abas:
         df_ambientes = abas['UsuariosAmbientes']
         df_acessos = abas['Acessos']
+        # Verificações extras de colunas essenciais
+        colunas_essenciais_acessos = ['DataAcesso', 'UsuarioID']
+        colunas_essenciais_ambientes = ['UsuarioID']
+        for col in colunas_essenciais_acessos:
+            if col not in df_acessos.columns:
+                st.error(f"A coluna '{col}' não foi encontrada na aba 'Acessos'. Por favor, ajuste sua planilha.")
+                return None
+        for col in colunas_essenciais_ambientes:
+            if col not in df_ambientes.columns:
+                st.error(f"A coluna '{col}' não foi encontrada na aba 'UsuariosAmbientes'. Por favor, ajuste sua planilha.")
+                return None
         ambientes_unicos = sorted(df_ambientes['NomeAmbiente'].dropna().unique()) if 'NomeAmbiente' in df_ambientes.columns else []
         perfis_unicos = sorted(df_ambientes['PerfilNaTrilha'].dropna().unique()) if 'PerfilNaTrilha' in df_ambientes.columns else []
         default_perfis = [p for p in ['Obrigatório', 'Participa'] if p in perfis_unicos]
@@ -89,10 +116,26 @@ def get_filtros(arquivo):
 if arquivo:
     filtros = get_filtros(arquivo)
     if filtros is not None:
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
-            grafico1.app(arquivo, filtros)
+            engajamento.app(arquivo, filtros)
         with col2:
-            grafico2.app(arquivo, filtros)
+            acessos.app(arquivo, filtros)
+        with col3:
+            acessos_dispositivo.app(arquivo, filtros)
+        st.markdown('---')
+        col_g4, col_g5, col_g6 = st.columns(3)
+        with col_g4:
+            performance_modulos.app(arquivo, filtros)
+        with col_g5:
+            engajamento_modulos.app(arquivo, filtros)
+        with col_g6:
+            horas_treinadas.app(arquivo, filtros)
+        st.markdown('---')
+        col_g7, col_g8 = st.columns(2)
+        with col_g7:
+            ambientes_mais_participacoes.app(arquivo, filtros)
+        with col_g8:
+            usuarios_mais_engajados.app(arquivo, filtros)
 else:
     st.info("Por favor, faça upload da planilha Excel original.")
