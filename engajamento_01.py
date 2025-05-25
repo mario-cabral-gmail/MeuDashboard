@@ -17,8 +17,10 @@ def app(arquivo, filtros):
             df_ambientes = abas['UsuariosAmbientes']
             if 'DataAcesso' in df_acessos.columns:
                 df_acessos['DataAcesso'] = pd.to_datetime(df_acessos['DataAcesso'], dayfirst=True, errors='coerce').dt.date
+                df_acessos['data_completa'] = pd.to_datetime(df_acessos['DataAcesso']).dt.date
             if 'DataCadastro' in df_ambientes.columns:
                 df_ambientes['DataCadastro'] = pd.to_datetime(df_ambientes['DataCadastro'], dayfirst=True, errors='coerce').dt.date
+                df_ambientes['data_completa'] = pd.to_datetime(df_ambientes['DataCadastro']).dt.date
             # Aplicar filtros recebidos
             df_amb_filtros = df_ambientes.copy()
             if filtros.get('ambiente'):
@@ -78,21 +80,28 @@ def app(arquivo, filtros):
             ))
             fig.update_layout(
                 margin=dict(l=40, r=40, t=40, b=40),
-                height=400
+                height=300
             )
-            st.markdown("#### Engajamento")
-            colg1, colg2, colg3 = st.columns([1,2,1])
+            # st.markdown("#### Engajamento")  # Removido para padronização
+            colg1, colg2 = st.columns([1,1])
             with colg1:
-                st.metric("Usuários", total_usuarios)
-                with st.expander("Ver detalhes usuários"):
-                    st.dataframe(usuarios_cadastrados)
-                st.metric("Usuários c/ acesso", usuarios_com_acesso)
-                with st.expander("Ver detalhes usuários c/ acesso"):
-                    st.dataframe(df_acessos_filtros)
+                cols = list(usuarios_cadastrados.columns)
+                if 'PerfilNaTrilha' in usuarios_cadastrados.columns and 'PerfilNaTrilha' not in cols:
+                    cols.append('PerfilNaTrilha')
+                st.metric("Usuários Cadastrados (Ativos)", total_usuarios)
             with colg2:
-                st.plotly_chart(fig, use_container_width=True)
-            with colg3:
-                st.write("")
+                # Garantir que PerfilNaTrilha está presente em df_acessos_filtros
+                if 'PerfilNaTrilha' not in df_acessos_filtros.columns and 'UsuarioID' in df_acessos_filtros.columns and 'UsuarioID' in df_ambientes.columns:
+                    df_acessos_filtros = df_acessos_filtros.merge(
+                        df_ambientes[['UsuarioID', 'PerfilNaTrilha']].drop_duplicates(),
+                        on='UsuarioID',
+                        how='left'
+                    )
+                cols = list(df_acessos_filtros.columns)
+                if 'PerfilNaTrilha' in df_acessos_filtros.columns and 'PerfilNaTrilha' not in cols:
+                    cols.append('PerfilNaTrilha')
+                st.metric("Usuários c/ acesso", usuarios_com_acesso)
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.error("Sua planilha precisa ter as abas 'Acessos' e 'UsuariosAmbientes'.")
     else:
