@@ -139,16 +139,30 @@ def app(arquivo, filtros):
             status_presentes = part['StatusAjustado'].value_counts().index.tolist()
             status_labels = status_presentes
             # Indicadores dinâmicos para os status presentes + Participações, todos em cima
+            total = part.shape[0]
             colunas = st.columns(len(status_labels) + 1)
             with colunas[0]:
-                st.metric('Participações', part.shape[0])
+                st.markdown(f"""
+                <div style='text-align:center;'>
+                    <span style='font-size:2.2em; font-weight:bold'>{total}</span><br>
+                    <span style='font-size:1.1em; color:#888;'>Participações</span>
+                </div>
+                """, unsafe_allow_html=True)
                 with st.expander('Ver'):
                     st.dataframe(part[['UsuarioID', 'NomeModulo', 'StatusAjustado', 'DataInicioModulo', 'DataConclusaoModulo']])
             for i, status in enumerate(status_labels):
                 nome = status_nomes.get(status, status)
                 valor = part[part['StatusAjustado'] == status].shape[0]
+                perc = (valor / total * 100) if total > 0 else 0
+                perc_str = f"{perc:.0f}%" if perc == int(perc) else f"{perc:.1f}%"
                 with colunas[i+1]:
-                    st.metric(nome, valor)
+                    st.markdown(f"""
+                    <div style='text-align:center;'>
+                        <span style='font-size:2.2em; font-weight:bold'>{valor}</span><br>
+                        <span style='font-size:1.1em; color:#888;'>{perc_str}</span><br>
+                        <span style='font-size:1.1em'>{nome}</span>
+                    </div>
+                    """, unsafe_allow_html=True)
                     with st.expander('Ver'):
                         st.dataframe(part[part['StatusAjustado'] == status][['UsuarioID', 'NomeModulo', 'StatusAjustado', 'DataInicioModulo', 'DataConclusaoModulo']])
             # --- NOVO GRÁFICO: Pizza de distribuição dos status ---
