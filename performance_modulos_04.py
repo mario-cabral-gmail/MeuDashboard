@@ -10,7 +10,7 @@ def app(arquivo, filtros):
 
     # Configura o locale para datas em português do Brasil
     try:
-        locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+        loc.ale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
     except:
         pass
 
@@ -116,41 +116,74 @@ def app(arquivo, filtros):
                 data_inicio = data_fim = pd.to_datetime('today')
             # Filtrar part_graf pelo período antes de agrupar
             part_graf = part_graf[(part_graf['DataParticipacao'] >= data_inicio) & (part_graf['DataParticipacao'] <= data_fim)]
+            # Ajustar status para nova categoria 'Módulos Expirados'
+            part['StatusAjustado'] = part['StatusModulo']
+            part.loc[part['StatusModulo'] == 'Expirado (Não Realizado)', 'StatusAjustado'] = 'Módulos Expirados'
             # Criar o dataframe do gráfico a partir do 'part' corrigido
-            df_graf = part.groupby(['DataParticipacao', 'StatusModulo']).size().reset_index(name='Quantidade')
+            df_graf = part.groupby(['DataParticipacao', 'StatusAjustado']).size().reset_index(name='Quantidade')
             datas_eixo = pd.DataFrame({'DataParticipacao': pd.date_range(start=data_inicio, end=data_fim, freq='D')})
-            status_dom = ['Aprovado', 'Em Andamento', 'Reprovado', 'Expirado (Não Realizado)']
+            status_dom = ['Aprovado', 'Em Andamento', 'Reprovado', 'Módulos Expirados']
             status_cores = ['#2ecc71', '#e67e22', '#e74c3c', '#16a085']
-            idx = pd.MultiIndex.from_product([datas_eixo['DataParticipacao'], status_dom], names=['DataParticipacao', 'StatusModulo'])
-            df_graf = df_graf.set_index(['DataParticipacao', 'StatusModulo']).reindex(idx, fill_value=0).reset_index()
+            idx = pd.MultiIndex.from_product([datas_eixo['DataParticipacao'], status_dom], names=['DataParticipacao', 'StatusAjustado'])
+            df_graf = df_graf.set_index(['DataParticipacao', 'StatusAjustado']).reindex(idx, fill_value=0).reset_index()
             df_graf['DataLabel'] = pd.to_datetime(df_graf['DataParticipacao']).dt.strftime('%d/%m/%Y')
             df_graf['DataX'] = pd.to_datetime(df_graf['DataParticipacao'])
-            # Indicadores
-            col1, col2, col3, col4, col5 = st.columns(5)
-            col1.metric('Particip.', part.shape[0])
-            with col1.expander('Ver'):
-                st.dataframe(part[['UsuarioID', 'NomeModulo', 'StatusModulo', 'DataInicioModulo', 'DataConclusaoModulo']])
-            col2.metric('Aprov.', part[part['StatusModulo'] == 'Aprovado'].shape[0])
-            with col2.expander('Ver'):
-                st.dataframe(part[part['StatusModulo'] == 'Aprovado'][['UsuarioID', 'NomeModulo', 'StatusModulo']])
-            col3.metric('Andam.', part[part['StatusModulo'] == 'Em Andamento'].shape[0])
-            with col3.expander('Ver'):
-                st.dataframe(part[part['StatusModulo'] == 'Em Andamento'][['UsuarioID', 'NomeModulo', 'StatusModulo']])
-            col4.metric('Reprov.', part[part['StatusModulo'] == 'Reprovado'].shape[0])
-            with col4.expander('Ver'):
-                st.dataframe(part[part['StatusModulo'] == 'Reprovado'][['UsuarioID', 'NomeModulo', 'StatusModulo']])
-            col5.metric('Expir.', part[part['StatusModulo'] == 'Expirado (Não Realizado)'].shape[0])
-            with col5.expander('Ver'):
-                st.dataframe(part[part['StatusModulo'] == 'Expirado (Não Realizado)'][['UsuarioID', 'NomeModulo', 'StatusModulo', 'DataInicioModulo', 'DataConclusaoModulo']])
+            # Indicadores dinâmicos para os status presentes
+            status_nomes = {
+                'Aprovado': 'Aprov.',
+                'Em Andamento': 'Andam.',
+                'Reprovado': 'Reprov.',
+                'Módulos Expirados': 'Expir.'
+            }
+            # Gerar labels, valores e cores apenas para os status presentes
+            status_presentes = part['StatusAjustado'].value_counts().index.tolist()
+            status_labels = status_presentes
+            # Indicadores dinâmicos para os status presentes + Participações, todos em cima
+            colunas = st.columns(len(status_labels) + 1)
+            with colunas[0]:
+                st.metric('Participações', part.shape[0])
+                with st.expander('Ver'):
+                    st.dataframe(part[['UsuarioID', 'NomeModulo', 'StatusAjustado', 'DataInicioModulo', 'DataConclusaoModulo']])
+            for i, status in enumerate(status_labels):
+                nome = status_nomes.get(status, status)
+                valor = part[part['StatusAjustado'] == status].shape[0]
+                with colunas[i+1]:
+                    st.metric(nome, valor)
+                    with st.expander('Ver'):
+                        st.dataframe(part[part['StatusAjustado'] == status][['UsuarioID', 'NomeModulo', 'StatusAjustado', 'DataInicioModulo', 'DataConclusaoModulo']])
             # --- NOVO GRÁFICO: Pizza de distribuição dos status ---
-            status_labels = ['Aprovado', 'Em Andamento', 'Reprovado', 'Expirado (Não Realizado)']
-            status_cores = ['#2ecc71', '#e67e22', '#e74c3c', '#16a085']
-            status_counts = [
-                part[part['StatusModulo'] == 'Aprovado'].shape[0],
-                part[part['StatusModulo'] == 'Em Andamento'].shape[0],
-                part[part['StatusModulo'] == 'Reprovado'].shape[0],
-                part[part['StatusModulo'] == 'Expirado (Não Realizado)'].shape[0]
-            ]
+            # Definir todas as cores possíveis para os status
+            cores_status = {
+                'Aprovado': '#2ecc71',
+                'Reprovado': '#e74c3c',
+                'Aprovado Fora do Prazo': '#3498db',
+                'Reprovado Fora do Prazo': '#9b59b6',
+                'Expirado (Não Realizado)': '#16a085',
+                'Aguardando Correção': '#f1c40f',
+                'Em Andamento': '#e67e22',
+                'Não Iniciado': '#95a5a6',
+                'Não Liberado': '#bdbdbd',
+                'Dispensado': '#607d8b',
+                'Módulos Expirados': '#16a085'  # Para compatibilidade com ajuste anterior
+            }
+            status_nomes = {
+                'Aprovado': 'Aprov.',
+                'Reprovado': 'Reprov.',
+                'Aprovado Fora do Prazo': 'Aprov. Fora Prazo',
+                'Reprovado Fora do Prazo': 'Reprov. Fora Prazo',
+                'Expirado (Não Realizado)': 'Expirado',
+                'Aguardando Correção': 'Aguard. Correção',
+                'Em Andamento': 'Andam.',
+                'Não Iniciado': 'Não Iniciado',
+                'Não Liberado': 'Não Liberado',
+                'Dispensado': 'Dispensado',
+                'Módulos Expirados': 'Expir.'
+            }
+            # Gerar labels, valores e cores apenas para os status presentes
+            status_presentes = part['StatusAjustado'].value_counts().index.tolist()
+            status_labels = status_presentes
+            status_counts = [part[part['StatusAjustado'] == s].shape[0] for s in status_labels]
+            status_cores = [cores_status.get(s, '#888888') for s in status_labels]
             fig = go.Figure(data=[
                 go.Pie(
                     labels=status_labels,
@@ -159,7 +192,7 @@ def app(arquivo, filtros):
                     hole=0.5
                 )
             ])
-            fig.update_traces(textinfo='percent+label', pull=[0.05, 0, 0, 0])
+            fig.update_traces(textinfo='percent+label', pull=[0.05] + [0]*(len(status_labels)-1))
             fig.update_layout(
                 showlegend=False,
                 margin=dict(l=20, r=20, t=20, b=20),
