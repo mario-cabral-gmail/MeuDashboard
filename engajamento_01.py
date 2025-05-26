@@ -14,13 +14,26 @@ def app(arquivo, filtros):
         abas = pd.read_excel(arquivo, sheet_name=None)
         if 'Acessos' in abas and 'UsuariosAmbientes' in abas:
             df_acessos = abas['Acessos']
+            # Filtrar apenas usuários ativos
+            if 'StatusUsuario' in df_acessos.columns:
+                df_acessos = df_acessos[df_acessos['StatusUsuario'].str.lower() == 'ativo']
             df_ambientes = abas['UsuariosAmbientes']
+            # Filtrar df_ambientes para considerar apenas UsuarioID ativos
+            if 'UsuarioID' in df_ambientes.columns and 'UsuarioID' in df_acessos.columns:
+                usuarios_ativos = df_acessos['UsuarioID'].unique()
+                df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_ativos)]
             if 'DataAcesso' in df_acessos.columns:
                 df_acessos['DataAcesso'] = pd.to_datetime(df_acessos['DataAcesso'], dayfirst=True, errors='coerce').dt.date
                 df_acessos['data_completa'] = pd.to_datetime(df_acessos['DataAcesso']).dt.date
             if 'DataCadastro' in df_ambientes.columns:
-                df_ambientes['DataCadastro'] = pd.to_datetime(df_ambientes['DataCadastro'], dayfirst=True, errors='coerce').dt.date
+                df_ambientes['DataCadastro'] = pd.to_datetime(df_ambientes['DataCadastro'], format='%d/%m/%Y', errors='coerce').dt.date
                 df_ambientes['data_completa'] = pd.to_datetime(df_ambientes['DataCadastro']).dt.date
+            # Filtro de status do usuário
+            if filtros.get('status_usuario') and 'StatusUsuario' in df_acessos.columns:
+                df_acessos = df_acessos[df_acessos['StatusUsuario'].isin(filtros['status_usuario'])]
+                if 'UsuarioID' in df_ambientes.columns:
+                    usuarios_filtrados = df_acessos['UsuarioID'].unique()
+                    df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_filtrados)]
             # Aplicar filtros recebidos
             df_amb_filtros = df_ambientes.copy()
             if filtros.get('ambiente'):
@@ -41,8 +54,8 @@ def app(arquivo, filtros):
                 data_ini, data_fi = periodo
                 data_ini = pd.to_datetime(data_ini).date()
                 data_fi = pd.to_datetime(data_fi).date()
-                df_amb_filtros['DataCadastro'] = pd.to_datetime(df_amb_filtros['DataCadastro']).dt.date
-                usuarios_cadastrados = df_amb_filtros[df_amb_filtros['DataCadastro'] <= data_fi]
+                df_amb_filtros['DataCadastro'] = pd.to_datetime(df_amb_filtros['DataCadastro'], format='%d/%m/%Y', errors='coerce')
+                usuarios_cadastrados = df_amb_filtros[df_amb_filtros['DataCadastro'].dt.date <= data_fi]
             else:
                 usuarios_cadastrados = df_amb_filtros
             total_usuarios = usuarios_cadastrados['UsuarioID'].nunique() if 'UsuarioID' in usuarios_cadastrados.columns else 0

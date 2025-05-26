@@ -8,6 +8,18 @@ def app(arquivo, filtros):
         abas = pd.read_excel(arquivo, sheet_name=None)
         if 'UsuariosAmbientes' in abas:
             df_ambientes = abas['UsuariosAmbientes']
+            # Filtrar apenas usuários ativos se possível
+            if 'Acessos' in abas and 'StatusUsuario' in abas['Acessos'].columns:
+                df_acessos = abas['Acessos']
+                df_acessos = df_acessos[df_acessos['StatusUsuario'].str.lower() == 'ativo']
+                if 'UsuarioID' in df_ambientes.columns and 'UsuarioID' in df_acessos.columns:
+                    usuarios_ativos = df_acessos['UsuarioID'].unique()
+                    df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_ativos)]
+            # Filtro de status do usuário
+            if filtros.get('status_usuario') and 'Acessos' in abas and 'StatusUsuario' in abas['Acessos'].columns:
+                df_acessos = abas['Acessos']
+                usuarios_filtrados = df_acessos[df_acessos['StatusUsuario'].isin(filtros['status_usuario'])]['UsuarioID'].unique()
+                df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_filtrados)]
             # Aplicar filtros
             if filtros.get('ambiente'):
                 df_ambientes = df_ambientes[df_ambientes['NomeAmbiente'].isin(filtros['ambiente'])]
@@ -22,16 +34,17 @@ def app(arquivo, filtros):
             # Filtro de período (igual ao gráfico 3)
             periodo = filtros.get('periodo')
             if periodo and isinstance(periodo, tuple) and len(periodo) == 2:
-                data_ini, data_fi = pd.to_datetime(periodo[0]), pd.to_datetime(periodo[1])
-                df_ambientes['DataInicioModulo'] = pd.to_datetime(df_ambientes['DataInicioModulo'], dayfirst=True, errors='coerce')
-                df_ambientes['DataConclusaoModulo'] = pd.to_datetime(df_ambientes['DataConclusaoModulo'], dayfirst=True, errors='coerce')
+                data_ini, data_fi = pd.to_datetime(periodo[0], format='%d/%m/%Y'), pd.to_datetime(periodo[1], format='%d/%m/%Y')
+                df_ambientes['DataInicioModulo'] = pd.to_datetime(df_ambientes['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
+                df_ambientes['DataConclusaoModulo'] = pd.to_datetime(df_ambientes['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
                 mask_inicio = (df_ambientes['DataInicioModulo'] >= data_ini) & (df_ambientes['DataInicioModulo'] <= data_fi)
                 mask_conclusao = (df_ambientes['DataConclusaoModulo'] >= data_ini) & (df_ambientes['DataConclusaoModulo'] <= data_fi)
-                mask_sem_datas = df_ambientes['DataInicioModulo'].isna() & df_ambientes['DataConclusaoModulo'].isna()
-                mask = mask_inicio | mask_conclusao | mask_sem_datas
+                mask = mask_inicio | mask_conclusao
                 df_ambientes = df_ambientes[mask]
             # Considerar como participação quem tem DataInicioModulo ou DataConclusaoModulo preenchida
             part = df_ambientes.dropna(subset=['DataInicioModulo', 'DataConclusaoModulo'], how='all').drop_duplicates(subset=['UsuarioID', 'NomeAmbiente', 'NomeModulo'])
+            part['DataInicioModulo'] = pd.to_datetime(part['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
+            part['DataConclusaoModulo'] = pd.to_datetime(part['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
             participacoes = part.groupby('NomeAmbiente').size()
             aprov = part[part['StatusModulo'] == 'Aprovado']
             aprovacoes = aprov.groupby('NomeAmbiente').size()

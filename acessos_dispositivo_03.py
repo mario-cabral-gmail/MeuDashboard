@@ -17,7 +17,14 @@ def app(arquivo, filtros):
         abas = pd.read_excel(arquivo, sheet_name=None)
         if 'Acessos' in abas and 'UsuariosAmbientes' in abas:
             df_acessos = abas['Acessos']
+            # Filtrar apenas usuários ativos
+            if 'StatusUsuario' in df_acessos.columns:
+                df_acessos = df_acessos[df_acessos['StatusUsuario'].str.lower() == 'ativo']
             df_ambientes = abas['UsuariosAmbientes']
+            # Filtrar df_ambientes para considerar apenas UsuarioID ativos
+            if 'UsuarioID' in df_ambientes.columns and 'UsuarioID' in df_acessos.columns:
+                usuarios_ativos = df_acessos['UsuarioID'].unique()
+                df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_ativos)]
             # Aplicar filtros na aba UsuariosAmbientes
             df_amb_filtros = df_ambientes.copy()
             if filtros.get('ambiente') and 'NomeAmbiente' in df_amb_filtros.columns:

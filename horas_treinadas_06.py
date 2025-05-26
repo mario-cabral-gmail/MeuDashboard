@@ -8,6 +8,18 @@ def app(arquivo, filtros):
         abas = pd.read_excel(arquivo, sheet_name=None)
         if 'UsuariosAmbientes' in abas:
             df_ambientes = abas['UsuariosAmbientes']
+            # Filtrar apenas usuários ativos se possível
+            if 'Acessos' in abas and 'StatusUsuario' in abas['Acessos'].columns:
+                df_acessos = abas['Acessos']
+                df_acessos = df_acessos[df_acessos['StatusUsuario'].str.lower() == 'ativo']
+                if 'UsuarioID' in df_ambientes.columns and 'UsuarioID' in df_acessos.columns:
+                    usuarios_ativos = df_acessos['UsuarioID'].unique()
+                    df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_ativos)]
+            # Filtro de status do usuário
+            if filtros.get('status_usuario') and 'Acessos' in abas and 'StatusUsuario' in abas['Acessos'].columns:
+                df_acessos = abas['Acessos']
+                usuarios_filtrados = df_acessos[df_acessos['StatusUsuario'].isin(filtros['status_usuario'])]['UsuarioID'].unique()
+                df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_filtrados)]
             # Aplicar filtros recebidos
             df_filtros = df_ambientes.copy()
             if filtros.get('ambiente'):
@@ -31,6 +43,16 @@ def app(arquivo, filtros):
             except Exception:
                 st.warning("Não foi possível converter 'TempoAcessoModuloEmHoras' para duração.")
                 return
+            # Conversão das datas dos módulos (SEM hora)
+            df_filtros['DataInicioModulo'] = pd.to_datetime(df_filtros['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
+            df_filtros['DataConclusaoModulo'] = pd.to_datetime(df_filtros['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
+            # Filtro de período
+            if filtros.get('periodo') and (isinstance(filtros['periodo'], list) or isinstance(filtros['periodo'], tuple)) and len(filtros['periodo']) == 2:
+                data_inicio_filtro = pd.to_datetime(filtros['periodo'][0], format='%d/%m/%Y')
+                data_fim_filtro = pd.to_datetime(filtros['periodo'][1], format='%d/%m/%Y')
+                mask_inicio = (df_filtros['DataInicioModulo'].notna()) & (df_filtros['DataInicioModulo'] >= data_inicio_filtro) & (df_filtros['DataInicioModulo'] <= data_fim_filtro)
+                mask_conclusao = (df_filtros['DataConclusaoModulo'].notna()) & (df_filtros['DataConclusaoModulo'] >= data_inicio_filtro) & (df_filtros['DataConclusaoModulo'] <= data_fim_filtro)
+                df_filtros = df_filtros[mask_inicio | mask_conclusao]
             if df_filtros.empty:
                 st.info("Nenhum dado encontrado após aplicação dos filtros.")
                 return

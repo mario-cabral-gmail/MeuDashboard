@@ -99,32 +99,28 @@ def get_filtros(arquivo):
         trilhas_unicas = sorted(df_ambientes['NomeTrilha'].dropna().unique()) if 'NomeTrilha' in df_ambientes.columns else []
         modulos_unicos = sorted(df_ambientes['NomeModulo'].dropna().unique()) if 'NomeModulo' in df_ambientes.columns else []
         grupos_unicos = sorted(df_ambientes['TodosGruposUsuario'].dropna().unique()) if 'TodosGruposUsuario' in df_ambientes.columns else []
-        colf1, colf2, colf3, colf4, colf5 = st.columns(5)
+        status_unicos = sorted(df_acessos['StatusUsuario'].dropna().unique()) if 'StatusUsuario' in df_acessos.columns else []
+        # Filtros em uma linha só
+        colf1, colf2, colf3, colf4, colf5, colf6, colf7 = st.columns(7)
         ambiente_selecionado = colf1.multiselect("Filtrar por ambiente:", ambientes_unicos, key="ambiente_dashboard")
         perfil_selecionado = colf2.multiselect("Filtrar por perfil na trilha:", perfis_unicos, default=default_perfis, key="perfil_dashboard")
         trilha_selecionada = colf3.multiselect("Filtrar por trilha:", trilhas_unicas, key="trilha_dashboard")
         modulo_selecionado = colf4.multiselect("Filtrar por módulo:", modulos_unicos, key="modulo_dashboard")
         grupo_selecionado = colf5.multiselect("Filtrar por grupo:", grupos_unicos, key="grupo_dashboard")
+        status_selecionado = colf6.multiselect("Status do Usuário:", status_unicos, default=[s for s in status_unicos if s.lower() == 'ativo'], key="status_dashboard")
         # Período
-        # Unir datas de acesso e de início de módulo para pegar o range total
         datas_acesso = pd.to_datetime(df_acessos['DataAcesso'], dayfirst=True, errors='coerce').dropna()
-        datas_inicio_modulo = pd.to_datetime(df_ambientes['DataInicioModulo'], dayfirst=True, errors='coerce').dropna() if 'DataInicioModulo' in df_ambientes.columns else pd.Series([])
+        datas_inicio_modulo = pd.to_datetime(df_ambientes['DataInicioModulo'], format='%d/%m/%Y', errors='coerce').dropna() if 'DataInicioModulo' in df_ambientes.columns else pd.Series([])
         data_inicio_total = min(datas_acesso.min(), datas_inicio_modulo.min()) if not datas_inicio_modulo.empty else datas_acesso.min()
         data_fim_total = max(datas_acesso.max(), datas_inicio_modulo.max()) if not datas_inicio_modulo.empty else datas_acesso.max()
         data_inicio_total = pd.to_datetime(data_inicio_total).date()
         data_fim_total = pd.to_datetime(data_fim_total).date()
-        st.markdown("### Período")
         ano_atual = data_fim_total.year
         ano_passado = ano_atual - 1
         inicio_ano_atual = pd.to_datetime(f"01/01/{ano_atual}", dayfirst=True).date()
         fim_ano_atual = pd.to_datetime(f"31/12/{ano_atual}", dayfirst=True).date()
         inicio_ano_passado = pd.to_datetime(f"01/01/{ano_passado}", dayfirst=True).date()
         fim_ano_passado = pd.to_datetime(f"31/12/{ano_passado}", dayfirst=True).date()
-        # Garantir que todos são datetime.date
-        inicio_ano_atual = pd.to_datetime(inicio_ano_atual).date()
-        fim_ano_atual = pd.to_datetime(fim_ano_atual).date()
-        inicio_ano_passado = pd.to_datetime(inicio_ano_passado).date()
-        fim_ano_passado = pd.to_datetime(fim_ano_passado).date()
         inicio_ano_atual = max(inicio_ano_atual, data_inicio_total)
         fim_ano_atual = min(fim_ano_atual, data_fim_total)
         inicio_ano_passado = max(inicio_ano_passado, data_inicio_total)
@@ -139,23 +135,25 @@ def get_filtros(arquivo):
             'Ano passado': (inicio_ano_passado, fim_ano_passado),
             'Personalizado': None
         }
-        escolha_periodo = st.selectbox("Selecione um período rápido ou escolha personalizado:", list(opcoes_periodo.keys()), index=0)
-        if escolha_periodo != 'Personalizado':
-            periodo = opcoes_periodo[escolha_periodo]
-        else:
-            periodo = st.date_input(
-                "Selecione o período:",
-                value=(data_inicio_total, data_fim_total),
-                min_value=data_inicio_total,
-                max_value=data_fim_total,
-                format="DD/MM/YYYY"
-            )
+        with colf7:
+            escolha_periodo = st.selectbox("Período:", list(opcoes_periodo.keys()), index=0)
+            if escolha_periodo != 'Personalizado':
+                periodo = opcoes_periodo[escolha_periodo]
+            else:
+                periodo = st.date_input(
+                    "Selecione o período:",
+                    value=(data_inicio_total, data_fim_total),
+                    min_value=data_inicio_total,
+                    max_value=data_fim_total,
+                    format="DD/MM/YYYY"
+                )
         filtros = {
             "ambiente": ambiente_selecionado,
             "perfil": perfil_selecionado,
             "trilha": trilha_selecionada,
             "modulo": modulo_selecionado,
             "grupo": grupo_selecionado,
+            "status_usuario": status_selecionado,
             "periodo": periodo
         }
         return filtros
