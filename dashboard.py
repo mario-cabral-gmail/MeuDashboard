@@ -63,6 +63,10 @@ if arquivo:
 elif ultima_planilha:
     arquivo_atual = ultima_planilha
     st.success("Carregando última planilha salva...")
+# Se não houver upload nem última planilha, tenta carregar data/Carga.xlsx
+elif os.path.exists("data/Carga.xlsx"):
+    arquivo_atual = "data/Carga.xlsx"
+    st.info("Carregando planilha padrão: data/Carga.xlsx")
 else:
     arquivo_atual = None
 
