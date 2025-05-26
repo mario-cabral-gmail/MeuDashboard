@@ -17,6 +17,13 @@ def app(arquivo, filtros):
         abas = pd.read_excel(arquivo, sheet_name=None)
         if 'UsuariosAmbientes' in abas:
             df_ambientes = abas['UsuariosAmbientes']
+            # Filtrar apenas usuários ativos se possível
+            if 'Acessos' in abas and 'StatusUsuario' in abas['Acessos'].columns:
+                df_acessos = abas['Acessos']
+                df_acessos = df_acessos[df_acessos['StatusUsuario'].str.lower() == 'ativo']
+                if 'UsuarioID' in df_ambientes.columns and 'UsuarioID' in df_acessos.columns:
+                    usuarios_ativos = df_acessos['UsuarioID'].unique()
+                    df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_ativos)]
             # Filtrar conforme os filtros recebidos
             if filtros.get('ambiente'):
                 df_ambientes = df_ambientes[df_ambientes['NomeAmbiente'].isin(filtros['ambiente'])]
@@ -28,15 +35,24 @@ def app(arquivo, filtros):
                 df_ambientes = df_ambientes[df_ambientes['NomeModulo'].isin(filtros['modulo'])]
             if filtros.get('grupo'):
                 df_ambientes = df_ambientes[df_ambientes['TodosGruposUsuario'].isin(filtros['grupo'])]
+            # Filtro de status do usuário
+            if filtros.get('status_usuario') and 'Acessos' in abas and 'StatusUsuario' in abas['Acessos'].columns:
+                df_acessos = abas['Acessos']
+                usuarios_filtrados = df_acessos[df_acessos['StatusUsuario'].isin(filtros['status_usuario'])]['UsuarioID'].unique()
+                df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_filtrados)]
             # Considerar como participação quem tem pelo menos uma das datas (DataInicioModulo ou DataConclusaoModulo) preenchida
             part = df_ambientes.dropna(subset=['DataInicioModulo', 'DataConclusaoModulo'], how='all').drop_duplicates(subset=['UsuarioID', 'NomeModulo'])
-            total_participacoes_reais = part.shape[0]
-            # Definir período filtrado
+            # Conversão das datas dos módulos (SEM hora)
+            part['DataInicioModulo'] = pd.to_datetime(part['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
+            part['DataConclusaoModulo'] = pd.to_datetime(part['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
+            # Filtro de período
             if filtros.get('periodo') and (isinstance(filtros['periodo'], list) or isinstance(filtros['periodo'], tuple)) and len(filtros['periodo']) == 2:
-                data_inicio_filtro = pd.to_datetime(filtros['periodo'][0])
-                data_fim_filtro = pd.to_datetime(filtros['periodo'][1])
-            else:
-                data_inicio_filtro = data_fim_filtro = None
+                data_inicio_filtro = pd.to_datetime(filtros['periodo'][0], format='%d/%m/%Y')
+                data_fim_filtro = pd.to_datetime(filtros['periodo'][1], format='%d/%m/%Y')
+                mask_inicio = (part['DataInicioModulo'].notna()) & (part['DataInicioModulo'] >= data_inicio_filtro) & (part['DataInicioModulo'] <= data_fim_filtro)
+                mask_conclusao = (part['DataConclusaoModulo'].notna()) & (part['DataConclusaoModulo'] >= data_inicio_filtro) & (part['DataConclusaoModulo'] <= data_fim_filtro)
+                part = part[mask_inicio | mask_conclusao]
+            total_participacoes_reais = part.shape[0]
             # Identificar todos os pares UsuarioID+NomeModulo esperados após filtros
             todos_pares = df_ambientes.drop_duplicates(subset=['UsuarioID', 'NomeModulo'])[['UsuarioID', 'NomeModulo']]
             # Encontrar pares sem participação (sem datas preenchidas)
@@ -52,8 +68,8 @@ def app(arquivo, filtros):
                 part_graf = part.copy()
             # Filtrar part_graf pelo período selecionado, se houver
             if filtros.get('periodo') and (isinstance(filtros['periodo'], list) or isinstance(filtros['periodo'], tuple)) and len(filtros['periodo']) == 2:
-                data_inicio_filtro = pd.to_datetime(filtros['periodo'][0])
-                data_fim_filtro = pd.to_datetime(filtros['periodo'][1])
+                data_inicio_filtro = pd.to_datetime(filtros['periodo'][0], format='%d/%m/%Y')
+                data_fim_filtro = pd.to_datetime(filtros['periodo'][1], format='%d/%m/%Y')
                 part_graf = part_graf[(
                     (pd.to_datetime(part_graf['DataInicioModulo'], errors='coerce') >= data_inicio_filtro) | (pd.to_datetime(part_graf['DataConclusaoModulo'], errors='coerce') >= data_inicio_filtro)
                 ) & (
@@ -83,15 +99,13 @@ def app(arquivo, filtros):
             with col5.expander('Ver'):
                 st.dataframe(part[part['StatusModulo'] == 'Expirado (Não Realizado)'][['UsuarioID', 'NomeModulo', 'StatusModulo', 'DataInicioModulo', 'DataConclusaoModulo']])
             # Conversão explícita das datas com formato correto
-            part['DataInicioModulo'] = pd.to_datetime(part['DataInicioModulo'], format='%d/%m/%Y %H:%M', errors='coerce')
-            part['DataConclusaoModulo'] = pd.to_datetime(part['DataConclusaoModulo'], format='%d/%m/%Y %H:%M', errors='coerce')
             part['DataParticipacao'] = pd.to_datetime(part['DataConclusaoModulo'].combine_first(part['DataInicioModulo']))
             part = part.dropna(subset=['DataParticipacao'])
             part['DataParticipacao'] = part['DataParticipacao'].dt.date
             # Gerar datas contínuas do período filtrado (igual ao gráfico 2)
             if filtros.get('periodo') and (isinstance(filtros['periodo'], list) or isinstance(filtros['periodo'], tuple)) and len(filtros['periodo']) == 2:
-                data_inicio = pd.to_datetime(filtros['periodo'][0])
-                data_fim = pd.to_datetime(filtros['periodo'][1])
+                data_inicio = pd.to_datetime(filtros['periodo'][0], format='%d/%m/%Y')
+                data_fim = pd.to_datetime(filtros['periodo'][1], format='%d/%m/%Y')
             elif not part_graf.empty:
                 data_inicio = part_graf['DataParticipacao'].min()
                 data_fim = part_graf['DataParticipacao'].max()

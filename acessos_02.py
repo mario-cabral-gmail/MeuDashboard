@@ -48,9 +48,9 @@ def app(arquivo, filtros):
                 data_fim_total = df['DataAcesso'].max()
 
                 if 'DataInicioModulo' in df_ambientes.columns:
-                    df_ambientes['DataInicioModulo'] = pd.to_datetime(df_ambientes['DataInicioModulo'], dayfirst=True, errors='coerce').dt.normalize()
+                    df_ambientes['DataInicioModulo'] = pd.to_datetime(df_ambientes['DataInicioModulo'], format='%d/%m/%Y', errors='coerce').dt.normalize()
                 if 'DataConclusaoModulo' in df_ambientes.columns:
-                    df_ambientes['DataConclusaoModulo'] = pd.to_datetime(df_ambientes['DataConclusaoModulo'], dayfirst=True, errors='coerce').dt.normalize()
+                    df_ambientes['DataConclusaoModulo'] = pd.to_datetime(df_ambientes['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce').dt.normalize()
 
                 # Inicializar participacoes_inicio para evitar erro de variável não definida
                 participacoes_inicio = pd.DataFrame()
@@ -130,11 +130,11 @@ def app(arquivo, filtros):
                 periodo = filtros.get('periodo')
                 if isinstance(periodo, tuple) and len(periodo) == 2:
                     data_ini, data_fi = periodo
-                    # Garantir que ambos sejam datetime.date
-                    data_ini = pd.to_datetime(data_ini).date()
-                    data_fi = pd.to_datetime(data_fi).date()
-                    consolidado['DataAcesso'] = pd.to_datetime(consolidado['DataAcesso']).dt.date
-                    mask = (consolidado['DataAcesso'] >= data_ini) & (consolidado['DataAcesso'] <= data_fi)
+                    data_ini = pd.to_datetime(data_ini)
+                    data_fi = pd.to_datetime(data_fi)
+                    # Garantir que ambos sejam date para comparação
+                    consolidado['DataAcesso'] = pd.to_datetime(consolidado['DataAcesso'])
+                    mask = (consolidado['DataAcesso'].dt.date >= data_ini.date()) & (consolidado['DataAcesso'].dt.date <= data_fi.date())
                     consolidado_filtrado = consolidado.loc[mask]
                 else:
                     consolidado_filtrado = consolidado
@@ -185,9 +185,12 @@ def app(arquivo, filtros):
                     usuarios_grupo = df_ambientes[df_ambientes['TodosGruposUsuario'].isin(filtros['grupo'])]['UsuarioID'].unique()
                     df_acessos_filtrado = df_acessos_filtrado[df_acessos_filtrado['UsuarioID'].isin(usuarios_grupo)]
                 df_acessos_filtrado['DataAcesso'] = pd.to_datetime(df_acessos_filtrado['DataAcesso'], dayfirst=True, errors='coerce').dt.date
+                # Garantir que ambos os lados da comparação são date
+                data_min = pd.to_datetime(consolidado_filtrado['DataAcesso'].min())
+                data_max = pd.to_datetime(consolidado_filtrado['DataAcesso'].max())
                 df_acessos_filtrado = df_acessos_filtrado[
-                    (df_acessos_filtrado['DataAcesso'] >= consolidado_filtrado['DataAcesso'].min()) &
-                    (df_acessos_filtrado['DataAcesso'] <= consolidado_filtrado['DataAcesso'].max())
+                    (pd.to_datetime(df_acessos_filtrado['DataAcesso']) >= data_min) &
+                    (pd.to_datetime(df_acessos_filtrado['DataAcesso']) <= data_max)
                 ]
                 total_acessos = df_acessos_filtrado.shape[0]
                 # Aplicar filtros ao DataFrame de participações antes de calcular o total de usuários com participação
@@ -231,9 +234,57 @@ def app(arquivo, filtros):
                     ]
                 total_participacoes = participacoes_filtrado.shape[0]
 
+                # --- AJUSTE FINAL: Indicadores respeitando todos os filtros e o período ---
+                # 1. Aplique todos os filtros no DataFrame de acessos
+                df_acessos_indicador = df_acessos.copy()
+                if filtros.get('ambiente') and 'NomeAmbiente' in df_ambientes.columns:
+                    usuarios_ambiente = df_ambientes[df_ambientes['NomeAmbiente'].isin(filtros['ambiente'])]['UsuarioID'].unique()
+                    df_acessos_indicador = df_acessos_indicador[df_acessos_indicador['UsuarioID'].isin(usuarios_ambiente)]
+                if filtros.get('perfil') and 'PerfilNaTrilha' in df_ambientes.columns:
+                    usuarios_perfil = df_ambientes[df_ambientes['PerfilNaTrilha'].isin(filtros['perfil'])]['UsuarioID'].unique()
+                    df_acessos_indicador = df_acessos_indicador[df_acessos_indicador['UsuarioID'].isin(usuarios_perfil)]
+                if filtros.get('trilha') and 'NomeTrilha' in df_ambientes.columns:
+                    usuarios_trilha = df_ambientes[df_ambientes['NomeTrilha'].isin(filtros['trilha'])]['UsuarioID'].unique()
+                    df_acessos_indicador = df_acessos_indicador[df_acessos_indicador['UsuarioID'].isin(usuarios_trilha)]
+                if filtros.get('modulo') and 'NomeModulo' in df_ambientes.columns:
+                    usuarios_modulo = df_ambientes[df_ambientes['NomeModulo'].isin(filtros['modulo'])]['UsuarioID'].unique()
+                    df_acessos_indicador = df_acessos_indicador[df_acessos_indicador['UsuarioID'].isin(usuarios_modulo)]
+                if filtros.get('grupo') and 'TodosGruposUsuario' in df_ambientes.columns:
+                    usuarios_grupo = df_ambientes[df_ambientes['TodosGruposUsuario'].isin(filtros['grupo'])]['UsuarioID'].unique()
+                    df_acessos_indicador = df_acessos_indicador[df_acessos_indicador['UsuarioID'].isin(usuarios_grupo)]
+                # 2. Filtro de período
+                if isinstance(periodo, tuple) and len(periodo) == 2:
+                    data_ini, data_fi = periodo
+                    data_ini = pd.to_datetime(data_ini)
+                    data_fi = pd.to_datetime(data_fi)
+                    df_acessos_indicador['DataAcesso'] = pd.to_datetime(df_acessos_indicador['DataAcesso'], dayfirst=True, errors='coerce')
+                    df_acessos_indicador = df_acessos_indicador[(df_acessos_indicador['DataAcesso'] >= data_ini) & (df_acessos_indicador['DataAcesso'] <= data_fi)]
+                usuarios_com_acesso = df_acessos_indicador['UsuarioID'].nunique()
+
+                # 3. Faça o mesmo para participações
+                df_participacoes_indicador = df_ambientes.copy()
+                if filtros.get('ambiente') and 'NomeAmbiente' in df_participacoes_indicador.columns:
+                    df_participacoes_indicador = df_participacoes_indicador[df_participacoes_indicador['NomeAmbiente'].isin(filtros['ambiente'])]
+                if filtros.get('perfil') and 'PerfilNaTrilha' in df_participacoes_indicador.columns:
+                    df_participacoes_indicador = df_participacoes_indicador[df_participacoes_indicador['PerfilNaTrilha'].isin(filtros['perfil'])]
+                if filtros.get('trilha') and 'NomeTrilha' in df_participacoes_indicador.columns:
+                    df_participacoes_indicador = df_participacoes_indicador[df_participacoes_indicador['NomeTrilha'].isin(filtros['trilha'])]
+                if filtros.get('modulo') and 'NomeModulo' in df_participacoes_indicador.columns:
+                    df_participacoes_indicador = df_participacoes_indicador[df_participacoes_indicador['NomeModulo'].isin(filtros['modulo'])]
+                if filtros.get('grupo') and 'TodosGruposUsuario' in df_participacoes_indicador.columns:
+                    df_participacoes_indicador = df_participacoes_indicador[df_participacoes_indicador['TodosGruposUsuario'].isin(filtros['grupo'])]
+                if isinstance(periodo, tuple) and len(periodo) == 2:
+                    df_participacoes_indicador['DataInicioModulo'] = pd.to_datetime(df_participacoes_indicador['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
+                    df_participacoes_indicador['DataConclusaoModulo'] = pd.to_datetime(df_participacoes_indicador['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
+                    mask_inicio = (df_participacoes_indicador['DataInicioModulo'] >= data_ini) & (df_participacoes_indicador['DataInicioModulo'] <= data_fi)
+                    mask_conclusao = (df_participacoes_indicador['DataConclusaoModulo'] >= data_ini) & (df_participacoes_indicador['DataConclusaoModulo'] <= data_fi)
+                    df_participacoes_indicador = df_participacoes_indicador[mask_inicio | mask_conclusao]
+                usuarios_participantes = df_participacoes_indicador['UsuarioID'].nunique()
+                # --- Fim do ajuste final ---
+
                 col1, col2, col3, col4 = st.columns(4)
-                col1.metric("Usuários com Acesso", total_usuarios)
-                col2.metric("Usuários Participantes", total_usuarios_com_participacao)
+                col1.metric("Usuários com Acesso", usuarios_com_acesso)
+                col2.metric("Usuários Participantes", usuarios_participantes)
                 col3.metric("Total de Acessos", total_acessos)
                 col4.metric("Total de Participações", total_participacoes)
 
