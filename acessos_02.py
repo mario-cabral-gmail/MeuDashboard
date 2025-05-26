@@ -276,9 +276,17 @@ def app(arquivo, filtros):
                 if isinstance(periodo, tuple) and len(periodo) == 2:
                     df_participacoes_indicador['DataInicioModulo'] = pd.to_datetime(df_participacoes_indicador['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
                     df_participacoes_indicador['DataConclusaoModulo'] = pd.to_datetime(df_participacoes_indicador['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
-                    mask_inicio = (df_participacoes_indicador['DataInicioModulo'] >= data_ini) & (df_participacoes_indicador['DataInicioModulo'] <= data_fi)
-                    mask_conclusao = (df_participacoes_indicador['DataConclusaoModulo'] >= data_ini) & (df_participacoes_indicador['DataConclusaoModulo'] <= data_fi)
-                    df_participacoes_indicador = df_participacoes_indicador[mask_inicio | mask_conclusao]
+                    if filtros.get('incluir_sem_data'):
+                        com_data = df_participacoes_indicador[df_participacoes_indicador['DataInicioModulo'].notna() | df_participacoes_indicador['DataConclusaoModulo'].notna()]
+                        sem_data = df_participacoes_indicador[df_participacoes_indicador['DataInicioModulo'].isna() & df_participacoes_indicador['DataConclusaoModulo'].isna()]
+                        mask_inicio = (com_data['DataInicioModulo'].notna()) & (com_data['DataInicioModulo'] >= data_ini) & (com_data['DataInicioModulo'] <= data_fi)
+                        mask_conclusao = (com_data['DataConclusaoModulo'].notna()) & (com_data['DataConclusaoModulo'] >= data_ini) & (com_data['DataConclusaoModulo'] <= data_fi)
+                        com_data_filtrado = com_data[mask_inicio | mask_conclusao]
+                        df_participacoes_indicador = pd.concat([com_data_filtrado, sem_data], ignore_index=True)
+                    else:
+                        mask_inicio = (df_participacoes_indicador['DataInicioModulo'] >= data_ini) & (df_participacoes_indicador['DataInicioModulo'] <= data_fi)
+                        mask_conclusao = (df_participacoes_indicador['DataConclusaoModulo'] >= data_ini) & (df_participacoes_indicador['DataConclusaoModulo'] <= data_fi)
+                        df_participacoes_indicador = df_participacoes_indicador[mask_inicio | mask_conclusao]
                 usuarios_participantes = df_participacoes_indicador['UsuarioID'].nunique()
                 # --- Fim do ajuste final ---
 
