@@ -10,25 +10,71 @@ import usuarios_mais_engajados_08 as usuarios_mais_engajados
 import pandas as pd
 import altair as alt
 import locale
+import os
+from datetime import datetime
 
 # Configuração da página
 st.set_page_config(page_title="Dashboard de Acessos", layout="wide", page_icon="📊")
 st.title("Dashboard")
 
-# Substituir o selectbox de frequência global para ficar ao lado do filtro de período
-# Encontrar o local onde o filtro de período é exibido
-# Substituir por:
-# col_periodo, col_freq = st.columns([3,1])
-# with col_periodo:
-#     escolha_periodo = st.selectbox(...)
-# with col_freq:
-#     frequencia = st.selectbox(...)
+def salvar_planilha(arquivo):
+    """Salva a planilha carregada na pasta data"""
+    if arquivo is not None:
+        # Criar pasta data se não existir
+        os.makedirs("data", exist_ok=True)
+        
+        # Salvar arquivo com timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        nome_arquivo = f"data/planilha_{timestamp}.xlsx"
+        
+        with open(nome_arquivo, "wb") as f:
+            f.write(arquivo.getbuffer())
+        
+        # Salvar nome do último arquivo
+        with open("data/ultimo_arquivo.txt", "w") as f:
+            f.write(nome_arquivo)
+        
+        return nome_arquivo
+    return None
 
+def carregar_ultima_planilha():
+    """Carrega a última planilha salva"""
+    try:
+        if os.path.exists("data/ultimo_arquivo.txt"):
+            with open("data/ultimo_arquivo.txt", "r") as f:
+                ultimo_arquivo = f.read().strip()
+                if os.path.exists(ultimo_arquivo):
+                    return ultimo_arquivo
+    except Exception as e:
+        st.warning(f"Erro ao carregar última planilha: {str(e)}")
+    return None
+
+# Carregar última planilha se existir
+ultima_planilha = carregar_ultima_planilha()
+
+# Upload de nova planilha
 arquivo = st.file_uploader("Faça upload da planilha Excel", type=["xlsx"])
+
+# Se houver upload de nova planilha, salva e usa ela
+if arquivo:
+    nome_arquivo = salvar_planilha(arquivo)
+    arquivo_atual = arquivo
+# Se não houver upload mas existir última planilha, usa ela
+elif ultima_planilha:
+    arquivo_atual = ultima_planilha
+    st.success("Carregando última planilha salva...")
+else:
+    arquivo_atual = None
 
 # Centralizar filtros no topo
 def get_filtros(arquivo):
-    abas = pd.read_excel(arquivo, sheet_name=None)
+    if isinstance(arquivo, str):
+        # Se for string, é um arquivo salvo
+        abas = pd.read_excel(arquivo, sheet_name=None)
+    else:
+        # Se não for string, é um arquivo carregado via upload
+        abas = pd.read_excel(arquivo, sheet_name=None)
+    
     if 'UsuariosAmbientes' in abas and 'Acessos' in abas:
         df_ambientes = abas['UsuariosAmbientes']
         df_acessos = abas['Acessos']
@@ -113,29 +159,29 @@ def get_filtros(arquivo):
         st.error("Sua planilha precisa ter as abas 'UsuariosAmbientes' e 'Acessos'.")
         return None
 
-if arquivo:
-    filtros = get_filtros(arquivo)
+if arquivo_atual:
+    filtros = get_filtros(arquivo_atual)
     if filtros is not None:
         col1, col2, col3 = st.columns(3)
         with col1:
-            engajamento.app(arquivo, filtros)
+            engajamento.app(arquivo_atual, filtros)
         with col2:
-            acessos.app(arquivo, filtros)
+            acessos.app(arquivo_atual, filtros)
         with col3:
-            acessos_dispositivo.app(arquivo, filtros)
+            acessos_dispositivo.app(arquivo_atual, filtros)
         st.markdown('---')
         col_g4, col_g5, col_g6 = st.columns(3)
         with col_g4:
-            performance_modulos.app(arquivo, filtros)
+            performance_modulos.app(arquivo_atual, filtros)
         with col_g5:
-            engajamento_modulos.app(arquivo, filtros)
+            engajamento_modulos.app(arquivo_atual, filtros)
         with col_g6:
-            horas_treinadas.app(arquivo, filtros)
+            horas_treinadas.app(arquivo_atual, filtros)
         st.markdown('---')
         col_g7, col_g8 = st.columns(2)
         with col_g7:
-            ambientes_mais_participacoes.app(arquivo, filtros)
+            ambientes_mais_participacoes.app(arquivo_atual, filtros)
         with col_g8:
-            usuarios_mais_engajados.app(arquivo, filtros)
+            usuarios_mais_engajados.app(arquivo_atual, filtros)
 else:
     st.info("Por favor, faça upload da planilha Excel original.")
