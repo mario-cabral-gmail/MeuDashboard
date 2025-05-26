@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import locale
+import plotly.graph_objects as go
 
 
 def app(arquivo, filtros):
@@ -41,17 +42,36 @@ def app(arquivo, filtros):
                 usuarios_filtrados = df_acessos[df_acessos['StatusUsuario'].isin(filtros['status_usuario'])]['UsuarioID'].unique()
                 df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_filtrados)]
             # Considerar como participação quem tem pelo menos uma das datas (DataInicioModulo ou DataConclusaoModulo) preenchida
-            part = df_ambientes.dropna(subset=['DataInicioModulo', 'DataConclusaoModulo'], how='all').drop_duplicates(subset=['UsuarioID', 'NomeModulo'])
-            # Conversão das datas dos módulos (SEM hora)
-            part['DataInicioModulo'] = pd.to_datetime(part['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
-            part['DataConclusaoModulo'] = pd.to_datetime(part['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
+            if filtros.get('incluir_sem_data'):
+                # Todos os pares únicos
+                part = df_ambientes.drop_duplicates(subset=['UsuarioID', 'NomeModulo'])
+                # Preencher StatusModulo como 'Expirado (Não Realizado)' onde ambas as datas são vazias
+                mask_sem_data = part['DataInicioModulo'].isna() & part['DataConclusaoModulo'].isna()
+                part.loc[mask_sem_data, 'StatusModulo'] = part.loc[mask_sem_data, 'StatusModulo'].fillna('Expirado (Não Realizado)')
+            else:
+                part = df_ambientes.dropna(subset=['DataInicioModulo', 'DataConclusaoModulo'], how='all').drop_duplicates(subset=['UsuarioID', 'NomeModulo'])
+            # Conversão explícita das datas com formato correto
+            part['DataParticipacao'] = pd.to_datetime(part['DataConclusaoModulo'].combine_first(part['DataInicioModulo']))
+            part['DataParticipacao'] = part['DataParticipacao'].dt.date if part['DataParticipacao'].notna().any() else part['DataParticipacao']
+            # Garantir que DataParticipacao está como date antes de qualquer filtro de período
+            if 'DataParticipacao' in part.columns:
+                part['DataParticipacao'] = pd.to_datetime(part['DataParticipacao'], errors='coerce').dt.date
             # Filtro de período
             if filtros.get('periodo') and (isinstance(filtros['periodo'], list) or isinstance(filtros['periodo'], tuple)) and len(filtros['periodo']) == 2:
                 data_inicio_filtro = pd.to_datetime(filtros['periodo'][0], format='%d/%m/%Y')
                 data_fim_filtro = pd.to_datetime(filtros['periodo'][1], format='%d/%m/%Y')
-                mask_inicio = (part['DataInicioModulo'].notna()) & (part['DataInicioModulo'] >= data_inicio_filtro) & (part['DataInicioModulo'] <= data_fim_filtro)
-                mask_conclusao = (part['DataConclusaoModulo'].notna()) & (part['DataConclusaoModulo'] >= data_inicio_filtro) & (part['DataConclusaoModulo'] <= data_fim_filtro)
-                part = part[mask_inicio | mask_conclusao]
+                if filtros.get('incluir_sem_data'):
+                    # Separa registros com e sem data
+                    com_data = part[part['DataParticipacao'].notna()]
+                    sem_data = part[part['DataParticipacao'].isna()]
+                    mask_inicio = (com_data['DataInicioModulo'].notna()) & (com_data['DataInicioModulo'] >= data_inicio_filtro) & (com_data['DataInicioModulo'] <= data_fim_filtro)
+                    mask_conclusao = (com_data['DataConclusaoModulo'].notna()) & (com_data['DataConclusaoModulo'] >= data_inicio_filtro) & (com_data['DataConclusaoModulo'] <= data_fim_filtro)
+                    com_data_filtrado = com_data[mask_inicio | mask_conclusao]
+                    part = pd.concat([com_data_filtrado, sem_data], ignore_index=True)
+                else:
+                    mask_inicio = (part['DataInicioModulo'].notna()) & (part['DataInicioModulo'] >= data_inicio_filtro) & (part['DataInicioModulo'] <= data_fim_filtro)
+                    mask_conclusao = (part['DataConclusaoModulo'].notna()) & (part['DataConclusaoModulo'] >= data_inicio_filtro) & (part['DataConclusaoModulo'] <= data_fim_filtro)
+                    part = part[mask_inicio | mask_conclusao]
             total_participacoes_reais = part.shape[0]
             # Identificar todos os pares UsuarioID+NomeModulo esperados após filtros
             todos_pares = df_ambientes.drop_duplicates(subset=['UsuarioID', 'NomeModulo'])[['UsuarioID', 'NomeModulo']]
@@ -66,42 +86,25 @@ def app(arquivo, filtros):
                 part_graf = pd.concat([part, expirados[['UsuarioID', 'NomeModulo', 'StatusModulo', 'DataParticipacao']]], ignore_index=True)
             else:
                 part_graf = part.copy()
-            # Filtrar part_graf pelo período selecionado, se houver
+            # Antes de filtrar part_graf pelo período, garantir que DataParticipacao está como date
+            if 'DataParticipacao' in part_graf.columns:
+                part_graf['DataParticipacao'] = pd.to_datetime(part_graf['DataParticipacao'], errors='coerce').dt.date
+            # Filtro de período
             if filtros.get('periodo') and (isinstance(filtros['periodo'], list) or isinstance(filtros['periodo'], tuple)) and len(filtros['periodo']) == 2:
                 data_inicio_filtro = pd.to_datetime(filtros['periodo'][0], format='%d/%m/%Y')
                 data_fim_filtro = pd.to_datetime(filtros['periodo'][1], format='%d/%m/%Y')
+                # Antes do filtro de período em part_graf, garantir tipos corretos
+                if 'DataParticipacao' in part_graf.columns:
+                    part_graf['DataParticipacao'] = pd.to_datetime(part_graf['DataParticipacao'], errors='coerce')
+                if 'data_inicio' in locals() and hasattr(data_inicio, 'date'):
+                    data_inicio = data_inicio.date()
+                if 'data_fim' in locals() and hasattr(data_fim, 'date'):
+                    data_fim = data_fim.date()
                 part_graf = part_graf[(
                     (pd.to_datetime(part_graf['DataInicioModulo'], errors='coerce') >= data_inicio_filtro) | (pd.to_datetime(part_graf['DataConclusaoModulo'], errors='coerce') >= data_inicio_filtro)
                 ) & (
                     (pd.to_datetime(part_graf['DataInicioModulo'], errors='coerce') <= data_fim_filtro) | (pd.to_datetime(part_graf['DataConclusaoModulo'], errors='coerce') <= data_fim_filtro)
                 )]
-            # Indicadores
-            col1, col2, col3, col4, col5 = st.columns(5)
-            col1.metric('Particip.', total_participacoes_reais)
-            with col1.expander('Ver'):
-                st.dataframe(part[['UsuarioID', 'NomeModulo', 'StatusModulo', 'DataInicioModulo', 'DataConclusaoModulo']])
-            aprovados = part[part['StatusModulo'] == 'Aprovado']
-            em_andamento = part[part['StatusModulo'] == 'Em Andamento']
-            reprovados = part[part['StatusModulo'] == 'Reprovado']
-            expirados = part_graf[part_graf['StatusModulo'] == 'Expirado (Não Realizado)']
-            expirados_reais = part[part['StatusModulo'] == 'Expirado (Não Realizado)'].shape[0]
-            total_oportunidades = total_participacoes_reais
-            col2.metric('Aprov.', aprovados.shape[0], f"{(aprovados.shape[0]/total_participacoes_reais*100) if total_participacoes_reais>0 else 0:.2f}%")
-            with col2.expander('Ver'):
-                st.dataframe(aprovados[['UsuarioID', 'NomeModulo', 'StatusModulo']])
-            col3.metric('Andam.', em_andamento.shape[0], f"{(em_andamento.shape[0]/total_participacoes_reais*100) if total_participacoes_reais>0 else 0:.2f}%")
-            with col3.expander('Ver'):
-                st.dataframe(em_andamento[['UsuarioID', 'NomeModulo', 'StatusModulo']])
-            col4.metric('Reprov.', reprovados.shape[0], f"{(reprovados.shape[0]/total_participacoes_reais*100) if total_participacoes_reais>0 else 0:.2f}%")
-            with col4.expander('Ver'):
-                st.dataframe(reprovados[['UsuarioID', 'NomeModulo', 'StatusModulo']])
-            col5.metric('Expir.', expirados_reais, f"{(expirados_reais/total_oportunidades*100) if total_oportunidades>0 else 0:.2f}%")
-            with col5.expander('Ver'):
-                st.dataframe(part[part['StatusModulo'] == 'Expirado (Não Realizado)'][['UsuarioID', 'NomeModulo', 'StatusModulo', 'DataInicioModulo', 'DataConclusaoModulo']])
-            # Conversão explícita das datas com formato correto
-            part['DataParticipacao'] = pd.to_datetime(part['DataConclusaoModulo'].combine_first(part['DataInicioModulo']))
-            part = part.dropna(subset=['DataParticipacao'])
-            part['DataParticipacao'] = part['DataParticipacao'].dt.date
             # Gerar datas contínuas do período filtrado (igual ao gráfico 2)
             if filtros.get('periodo') and (isinstance(filtros['periodo'], list) or isinstance(filtros['periodo'], tuple)) and len(filtros['periodo']) == 2:
                 data_inicio = pd.to_datetime(filtros['periodo'][0], format='%d/%m/%Y')
@@ -122,20 +125,48 @@ def app(arquivo, filtros):
             df_graf = df_graf.set_index(['DataParticipacao', 'StatusModulo']).reindex(idx, fill_value=0).reset_index()
             df_graf['DataLabel'] = pd.to_datetime(df_graf['DataParticipacao']).dt.strftime('%d/%m/%Y')
             df_graf['DataX'] = pd.to_datetime(df_graf['DataParticipacao'])
-            base = alt.Chart(df_graf).encode(
-                x=alt.X('DataX:T', title='Data', axis=alt.Axis(labelExpr="datum.value ? timeFormat(datum.value, '%d/%m/%Y') : ''")),
-                color=alt.Color('StatusModulo:N', scale=alt.Scale(domain=status_dom, range=status_cores), legend=alt.Legend(title="Status", orient="bottom"))
+            # Indicadores
+            col1, col2, col3, col4, col5 = st.columns(5)
+            col1.metric('Particip.', part.shape[0])
+            with col1.expander('Ver'):
+                st.dataframe(part[['UsuarioID', 'NomeModulo', 'StatusModulo', 'DataInicioModulo', 'DataConclusaoModulo']])
+            col2.metric('Aprov.', part[part['StatusModulo'] == 'Aprovado'].shape[0])
+            with col2.expander('Ver'):
+                st.dataframe(part[part['StatusModulo'] == 'Aprovado'][['UsuarioID', 'NomeModulo', 'StatusModulo']])
+            col3.metric('Andam.', part[part['StatusModulo'] == 'Em Andamento'].shape[0])
+            with col3.expander('Ver'):
+                st.dataframe(part[part['StatusModulo'] == 'Em Andamento'][['UsuarioID', 'NomeModulo', 'StatusModulo']])
+            col4.metric('Reprov.', part[part['StatusModulo'] == 'Reprovado'].shape[0])
+            with col4.expander('Ver'):
+                st.dataframe(part[part['StatusModulo'] == 'Reprovado'][['UsuarioID', 'NomeModulo', 'StatusModulo']])
+            col5.metric('Expir.', part[part['StatusModulo'] == 'Expirado (Não Realizado)'].shape[0])
+            with col5.expander('Ver'):
+                st.dataframe(part[part['StatusModulo'] == 'Expirado (Não Realizado)'][['UsuarioID', 'NomeModulo', 'StatusModulo', 'DataInicioModulo', 'DataConclusaoModulo']])
+            # --- NOVO GRÁFICO: Pizza de distribuição dos status ---
+            status_labels = ['Aprovado', 'Em Andamento', 'Reprovado', 'Expirado (Não Realizado)']
+            status_cores = ['#2ecc71', '#e67e22', '#e74c3c', '#16a085']
+            status_counts = [
+                part[part['StatusModulo'] == 'Aprovado'].shape[0],
+                part[part['StatusModulo'] == 'Em Andamento'].shape[0],
+                part[part['StatusModulo'] == 'Reprovado'].shape[0],
+                part[part['StatusModulo'] == 'Expirado (Não Realizado)'].shape[0]
+            ]
+            fig = go.Figure(data=[
+                go.Pie(
+                    labels=status_labels,
+                    values=status_counts,
+                    marker=dict(colors=status_cores),
+                    hole=0.5
+                )
+            ])
+            fig.update_traces(textinfo='percent+label', pull=[0.05, 0, 0, 0])
+            fig.update_layout(
+                showlegend=False,
+                margin=dict(l=20, r=20, t=20, b=20),
+                width=550,
+                height=350
             )
-            hover = alt.selection_single(fields=["DataX"], nearest=True, on="mouseover", empty="none", clear="mouseout")
-            bars = base.mark_bar().encode(
-                y=alt.Y('Quantidade:Q', title='Participações'),
-                tooltip=[
-                    alt.Tooltip('DataLabel:N', title='Data'),
-                    alt.Tooltip('StatusModulo:N', title='Status'),
-                    alt.Tooltip('Quantidade:Q', title='Participações')
-                ]
-            ).add_selection(hover).properties(width=550, height=350)
-            st.altair_chart(bars, use_container_width=False)
+            st.plotly_chart(fig, use_container_width=False)
         else:
             st.error("Sua planilha precisa ter a aba 'UsuariosAmbientes'.")
     else:
