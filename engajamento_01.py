@@ -68,12 +68,13 @@ def app(arquivo, filtros):
             else:
                 usuarios_com_acesso = 0
             percentual = (usuarios_com_acesso / total_usuarios * 100) if total_usuarios > 0 else 0
-            if percentual >= 70:
+            # NOVAS FAIXAS DO GAUGE
+            if percentual > 60:
+                classificacao = "Excelente"
+            elif percentual > 20:
                 classificacao = "Bom"
-            elif percentual >= 40:
-                classificacao = "Regular"
             else:
-                classificacao = "Baixo"
+                classificacao = "Regular"
             fig = go.Figure(go.Indicator(
                 mode = "gauge+number+delta",
                 value = percentual,
@@ -85,9 +86,9 @@ def app(arquivo, filtros):
                     'bar': {'color': "#00796B", 'thickness': 0.25},
                     'bgcolor': "white",
                     'steps': [
-                        {'range': [0, 40], 'color': '#FF6F6F'},
-                        {'range': [40, 70], 'color': '#FFD180'},
-                        {'range': [70, 100], 'color': '#B2FFB2'}
+                        {'range': [0, 20], 'color': '#FF6F6F'},  # Regular (vermelho)
+                        {'range': [20, 60], 'color': '#FFD180'}, # Bom (amarelo)
+                        {'range': [60, 100], 'color': '#66E396'} # Excelente (verde)
                     ],
                 }
             ))
