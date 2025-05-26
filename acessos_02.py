@@ -19,10 +19,14 @@ def app(arquivo, filtros):
 
         if 'Acessos' in abas and 'UsuariosAmbientes' in abas:
             df_acessos = abas['Acessos']
-            # Corrigir nome da coluna de data, se necessário
-            if 'DataAces' in df_acessos.columns:
-                df_acessos = df_acessos.rename(columns={'DataAces': 'DataAcesso'})
+            # Filtrar apenas usuários ativos
+            if 'StatusUsuario' in df_acessos.columns:
+                df_acessos = df_acessos[df_acessos['StatusUsuario'].str.lower() == 'ativo']
             df_ambientes = abas['UsuariosAmbientes']
+            # Filtrar df_ambientes para considerar apenas UsuarioID ativos
+            if 'UsuarioID' in df_ambientes.columns and 'UsuarioID' in df_acessos.columns:
+                usuarios_ativos = df_acessos['UsuarioID'].unique()
+                df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_ativos)]
 
             campos_merge = [
                 'UsuarioID', 'NomeAmbiente', 'PerfilNaTrilha', 'NomeTrilha',
@@ -186,8 +190,6 @@ def app(arquivo, filtros):
                     (df_acessos_filtrado['DataAcesso'] <= consolidado_filtrado['DataAcesso'].max())
                 ]
                 total_acessos = df_acessos_filtrado.shape[0]
-                media_diaria_acessos = consolidado_filtrado['Usuarios_com_acesso'].mean() if not consolidado_filtrado.empty else 0
-                media_diaria_participantes = consolidado_filtrado['Usuarios_participantes'].mean() if not consolidado_filtrado.empty else 0
                 # Aplicar filtros ao DataFrame de participações antes de calcular o total de usuários com participação
                 participacoes_inicio_filtrado = participacoes_inicio_raw.copy()
                 if filtros.get('ambiente') and 'NomeAmbiente' in participacoes_inicio_filtrado.columns:
