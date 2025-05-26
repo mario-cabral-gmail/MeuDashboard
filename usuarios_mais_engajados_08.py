@@ -37,12 +37,23 @@ def app(arquivo, filtros):
                 data_ini, data_fi = pd.to_datetime(periodo[0], format='%d/%m/%Y'), pd.to_datetime(periodo[1], format='%d/%m/%Y')
                 df_ambientes['DataInicioModulo'] = pd.to_datetime(df_ambientes['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
                 df_ambientes['DataConclusaoModulo'] = pd.to_datetime(df_ambientes['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
-                mask_inicio = (df_ambientes['DataInicioModulo'] >= data_ini) & (df_ambientes['DataInicioModulo'] <= data_fi)
-                mask_conclusao = (df_ambientes['DataConclusaoModulo'] >= data_ini) & (df_ambientes['DataConclusaoModulo'] <= data_fi)
-                mask = mask_inicio | mask_conclusao
-                df_ambientes = df_ambientes[mask]
+                if filtros.get('incluir_sem_data'):
+                    com_data = df_ambientes[df_ambientes['DataInicioModulo'].notna() | df_ambientes['DataConclusaoModulo'].notna()]
+                    sem_data = df_ambientes[df_ambientes['DataInicioModulo'].isna() & df_ambientes['DataConclusaoModulo'].isna()]
+                    mask_inicio = (com_data['DataInicioModulo'].notna()) & (com_data['DataInicioModulo'] >= data_ini) & (com_data['DataInicioModulo'] <= data_fi)
+                    mask_conclusao = (com_data['DataConclusaoModulo'].notna()) & (com_data['DataConclusaoModulo'] >= data_ini) & (com_data['DataConclusaoModulo'] <= data_fi)
+                    com_data_filtrado = com_data[mask_inicio | mask_conclusao]
+                    df_ambientes = pd.concat([com_data_filtrado, sem_data], ignore_index=True)
+                else:
+                    mask_inicio = (df_ambientes['DataInicioModulo'] >= data_ini) & (df_ambientes['DataInicioModulo'] <= data_fi)
+                    mask_conclusao = (df_ambientes['DataConclusaoModulo'] >= data_ini) & (df_ambientes['DataConclusaoModulo'] <= data_fi)
+                    mask = mask_inicio | mask_conclusao
+                    df_ambientes = df_ambientes[mask]
             # Considerar como participação quem tem DataInicioModulo ou DataConclusaoModulo preenchida
-            part = df_ambientes.dropna(subset=['DataInicioModulo', 'DataConclusaoModulo'], how='all').drop_duplicates(subset=['UsuarioID', 'NomeModulo'])
+            if filtros.get('incluir_sem_data'):
+                part = df_ambientes.drop_duplicates(subset=['UsuarioID', 'NomeModulo'])
+            else:
+                part = df_ambientes.dropna(subset=['DataInicioModulo', 'DataConclusaoModulo'], how='all').drop_duplicates(subset=['UsuarioID', 'NomeModulo'])
             part['DataInicioModulo'] = pd.to_datetime(part['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
             part['DataConclusaoModulo'] = pd.to_datetime(part['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
             if 'LoginUsuario' not in part.columns:

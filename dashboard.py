@@ -101,7 +101,7 @@ def get_filtros(arquivo):
         grupos_unicos = sorted(df_ambientes['TodosGruposUsuario'].dropna().unique()) if 'TodosGruposUsuario' in df_ambientes.columns else []
         status_unicos = sorted(df_acessos['StatusUsuario'].dropna().unique()) if 'StatusUsuario' in df_acessos.columns else []
         # Filtros em uma linha só
-        colf1, colf2, colf3, colf4, colf5, colf6, colf7 = st.columns(7)
+        colf1, colf2, colf3, colf4, colf5, colf6, colf7, colf8 = st.columns(8)
         ambiente_selecionado = colf1.multiselect("Filtrar por ambiente:", ambientes_unicos, key="ambiente_dashboard")
         perfil_selecionado = colf2.multiselect("Filtrar por perfil na trilha:", perfis_unicos, default=default_perfis, key="perfil_dashboard")
         trilha_selecionada = colf3.multiselect("Filtrar por trilha:", trilhas_unicas, key="trilha_dashboard")
@@ -147,6 +147,8 @@ def get_filtros(arquivo):
                     max_value=data_fim_total,
                     format="DD/MM/YYYY"
                 )
+        with colf8:
+            incluir_sem_data = st.checkbox("Incluir registros sem data", value=False)
         filtros = {
             "ambiente": ambiente_selecionado,
             "perfil": perfil_selecionado,
@@ -154,7 +156,8 @@ def get_filtros(arquivo):
             "modulo": modulo_selecionado,
             "grupo": grupo_selecionado,
             "status_usuario": status_selecionado,
-            "periodo": periodo
+            "periodo": periodo,
+            "incluir_sem_data": incluir_sem_data
         }
         return filtros
     else:

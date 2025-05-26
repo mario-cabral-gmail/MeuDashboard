@@ -39,9 +39,17 @@ def app(arquivo, filtros):
             if filtros.get('periodo') and (isinstance(filtros['periodo'], list) or isinstance(filtros['periodo'], tuple)) and len(filtros['periodo']) == 2:
                 data_inicio_filtro = pd.to_datetime(filtros['periodo'][0], format='%d/%m/%Y')
                 data_fim_filtro = pd.to_datetime(filtros['periodo'][1], format='%d/%m/%Y')
-                mask_inicio = (df_filtros['DataInicioModulo'].notna()) & (df_filtros['DataInicioModulo'] >= data_inicio_filtro) & (df_filtros['DataInicioModulo'] <= data_fim_filtro)
-                mask_conclusao = (df_filtros['DataConclusaoModulo'].notna()) & (df_filtros['DataConclusaoModulo'] >= data_inicio_filtro) & (df_filtros['DataConclusaoModulo'] <= data_fim_filtro)
-                df_filtros = df_filtros[mask_inicio | mask_conclusao]
+                if filtros.get('incluir_sem_data'):
+                    com_data = df_filtros[df_filtros['DataInicioModulo'].notna() | df_filtros['DataConclusaoModulo'].notna()]
+                    sem_data = df_filtros[df_filtros['DataInicioModulo'].isna() & df_filtros['DataConclusaoModulo'].isna()]
+                    mask_inicio = (com_data['DataInicioModulo'].notna()) & (com_data['DataInicioModulo'] >= data_inicio_filtro) & (com_data['DataInicioModulo'] <= data_fim_filtro)
+                    mask_conclusao = (com_data['DataConclusaoModulo'].notna()) & (com_data['DataConclusaoModulo'] >= data_inicio_filtro) & (com_data['DataConclusaoModulo'] <= data_fim_filtro)
+                    com_data_filtrado = com_data[mask_inicio | mask_conclusao]
+                    df_filtros = pd.concat([com_data_filtrado, sem_data], ignore_index=True)
+                else:
+                    mask_inicio = (df_filtros['DataInicioModulo'].notna()) & (df_filtros['DataInicioModulo'] >= data_inicio_filtro) & (df_filtros['DataInicioModulo'] <= data_fim_filtro)
+                    mask_conclusao = (df_filtros['DataConclusaoModulo'].notna()) & (df_filtros['DataConclusaoModulo'] >= data_inicio_filtro) & (df_filtros['DataConclusaoModulo'] <= data_fim_filtro)
+                    df_filtros = df_filtros[mask_inicio | mask_conclusao]
             # Considerar apenas módulos disponíveis para os usuários filtrados
             modulos_disponiveis = df_filtros[['UsuarioID', 'NomeModulo', 'StatusModulo']].drop_duplicates()
             # Definir status de finalizado e pendente
