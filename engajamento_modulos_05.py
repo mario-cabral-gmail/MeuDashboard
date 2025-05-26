@@ -64,6 +64,45 @@ def app(arquivo, filtros):
             perc_finalizados = (total_finalizados / total_modulos * 100) if total_modulos > 0 else 0
             perc_expirados = (total_expirados / total_modulos * 100) if total_modulos > 0 else 0
             perc_pendentes = 100 - perc_finalizados - perc_expirados if total_modulos > 0 else 0
+            perc_finalizados_str = f"{perc_finalizados:.0f}%" if perc_finalizados == int(perc_finalizados) else f"{perc_finalizados:.1f}%"
+            perc_pendentes_str = f"{perc_pendentes:.0f}%" if perc_pendentes == int(perc_pendentes) else f"{perc_pendentes:.1f}%"
+            perc_expirados_str = f"{perc_expirados:.0f}%" if perc_expirados == int(perc_expirados) else f"{perc_expirados:.1f}%"
+            # Indicadores dinâmicos para os status presentes + Participações, todos em cima
+            colunas = st.columns(3)
+            with colunas[0]:
+                st.markdown(f"""
+                <div style='text-align:center;'>
+                    <span style='font-size:2.2em; font-weight:bold'>{total_finalizados}</span><br>
+                    <span style='font-size:1.1em; color:#888;'>{perc_finalizados_str}</span><br>
+                    <span style='font-size:1.1em'>Finalizados</span>
+                </div>
+                """, unsafe_allow_html=True)
+            with colunas[1]:
+                st.markdown(f"""
+                <div style='text-align:center;'>
+                    <span style='font-size:2.2em; font-weight:bold'>{total_pendentes}</span><br>
+                    <span style='font-size:1.1em; color:#888;'>{perc_pendentes_str}</span><br>
+                    <span style='font-size:1.1em'>Pendentes</span>
+                </div>
+                """, unsafe_allow_html=True)
+            with colunas[2]:
+                st.markdown(f"""
+                <div style='text-align:center;'>
+                    <span style='font-size:2.2em; font-weight:bold'>{total_expirados}</span><br>
+                    <span style='font-size:1.1em; color:#888;'>{perc_expirados_str}</span><br>
+                    <span style='font-size:1.1em'>Expirados</span>
+                </div>
+                """, unsafe_allow_html=True)
+            # Botão de detalhar logo abaixo dos indicadores
+            with st.expander('Ver'):
+                cols = list(modulos_disponiveis.columns)
+                if 'PerfilNaTrilha' in df_filtros.columns and 'PerfilNaTrilha' not in cols:
+                    cols.append('PerfilNaTrilha')
+                if 'PerfilNaTrilha' not in modulos_disponiveis.columns and 'UsuarioID' in modulos_disponiveis.columns and 'UsuarioID' in df_filtros.columns:
+                    modulos_disponiveis = modulos_disponiveis.merge(
+                        df_filtros[['UsuarioID', 'PerfilNaTrilha']].drop_duplicates(),
+                        on='UsuarioID', how='left')
+                st.dataframe(modulos_disponiveis[cols])
             # Gráfico de pizza/donut com três categorias
             fig = go.Figure(data=[
                 go.Pie(
@@ -81,23 +120,6 @@ def app(arquivo, filtros):
                 height=350
             )
             st.plotly_chart(fig, use_container_width=False)
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.markdown(f"<b>Módulos Finalizados</b><br><span style='font-size:2em'>{perc_finalizados:.2f}%</span> ({total_finalizados})", unsafe_allow_html=True)
-            with col2:
-                st.markdown(f"<b>Módulos Pendentes</b><br><span style='font-size:2em'>{perc_pendentes:.2f}%</span> ({total_pendentes})", unsafe_allow_html=True)
-            with col3:
-                st.markdown(f"<b>Módulos Expirados</b><br><span style='font-size:2em'>{perc_expirados:.2f}%</span> ({total_expirados})", unsafe_allow_html=True)
-            with st.expander("Detalhar"):
-                cols = list(modulos_disponiveis.columns)
-                if 'PerfilNaTrilha' in df_filtros.columns and 'PerfilNaTrilha' not in cols:
-                    cols.append('PerfilNaTrilha')
-                # Merge para garantir que a coluna esteja presente
-                if 'PerfilNaTrilha' not in modulos_disponiveis.columns and 'UsuarioID' in modulos_disponiveis.columns and 'UsuarioID' in df_filtros.columns:
-                    modulos_disponiveis = modulos_disponiveis.merge(
-                        df_filtros[['UsuarioID', 'PerfilNaTrilha']].drop_duplicates(),
-                        on='UsuarioID', how='left')
-                st.dataframe(modulos_disponiveis[cols])
         else:
             st.error("Sua planilha precisa ter a aba 'UsuariosAmbientes'.")
     else:

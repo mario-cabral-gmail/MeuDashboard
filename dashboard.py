@@ -175,6 +175,7 @@ if arquivo_atual:
         with col3:
             acessos_dispositivo.app(arquivo_atual, filtros)
         st.markdown('---')
+        # Segunda linha de gráficos com largura igual
         col_g4, col_g5, col_g6 = st.columns(3)
         with col_g4:
             performance_modulos.app(arquivo_atual, filtros)
