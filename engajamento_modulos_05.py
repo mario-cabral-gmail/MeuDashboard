@@ -119,7 +119,10 @@ def app(arquivo, filtros):
                 width=550,
                 height=350
             )
-            st.plotly_chart(fig, use_container_width=False)
+            if fig is not None and hasattr(fig, 'to_plotly_json'):
+                st.plotly_chart(fig, use_container_width=False)
+            else:
+                st.error("Erro ao gerar o gráfico: objeto inválido.")
         else:
             st.error("Sua planilha precisa ter a aba 'UsuariosAmbientes'.")
     else:

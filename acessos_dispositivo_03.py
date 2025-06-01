@@ -87,7 +87,10 @@ def app(arquivo, filtros):
             )
             col_graf, col_info = st.columns([2,3])
             with col_graf:
-                st.plotly_chart(fig, use_container_width=True)
+                if fig is not None and hasattr(fig, 'to_plotly_json'):
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.error("Erro ao gerar o gráfico: objeto inválido.")
             with col_info:
                 blocos = []
                 for i, tipo in enumerate(tipos):

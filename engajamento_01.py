@@ -115,7 +115,10 @@ def app(arquivo, filtros):
                 if 'PerfilNaTrilha' in df_acessos_filtros.columns and 'PerfilNaTrilha' not in cols:
                     cols.append('PerfilNaTrilha')
                 st.metric("Usuários com acesso", usuarios_com_acesso)
-            st.plotly_chart(fig, use_container_width=True)
+            if fig is not None and hasattr(fig, 'to_plotly_json'):
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.error("Erro ao gerar o gráfico: objeto inválido.")
         else:
             st.error("Sua planilha precisa ter as abas 'Acessos' e 'UsuariosAmbientes'.")
     else:

@@ -97,7 +97,10 @@ def app(arquivo, filtros):
                 legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='left', x=0),
                 margin=dict(l=20, r=20, t=40, b=20)
             )
-            st.plotly_chart(fig, use_container_width=True)
+            if fig is not None and hasattr(fig, 'to_plotly_json'):
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.error("Erro ao gerar o gráfico: objeto inválido.")
             with st.expander("Ver dados brutos"):
                 st.dataframe(df_plot)
         else:
