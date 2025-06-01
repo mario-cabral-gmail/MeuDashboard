@@ -14,27 +14,45 @@ import os
 from datetime import datetime
 
 # Configuração da página
-st.set_page_config(page_title="Dashboard de Acessos", layout="wide", page_icon="📊")
-st.title("Dashboard")
+st.set_page_config(
+    page_title="Dashboard de Acessos",
+    layout="wide",
+    page_icon="📊",
+    initial_sidebar_state="expanded"
+)
+
+# Configuração de cache para melhor performance
+@st.cache_data(ttl=3600)
+def load_excel_data(file):
+    return pd.read_excel(file, sheet_name=None)
+
+@st.cache_data(ttl=3600)
+def process_data(abas):
+    if 'UsuariosAmbientes' in abas and 'Acessos' in abas:
+        return abas['UsuariosAmbientes'], abas['Acessos']
+    return None, None
 
 def salvar_planilha(arquivo):
     """Salva a planilha carregada na pasta data"""
-    if arquivo is not None:
-        # Criar pasta data se não existir
-        os.makedirs("data", exist_ok=True)
-        
-        # Salvar arquivo com timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        nome_arquivo = f"data/planilha_{timestamp}.xlsx"
-        
-        with open(nome_arquivo, "wb") as f:
-            f.write(arquivo.getbuffer())
-        
-        # Salvar nome do último arquivo
-        with open("data/ultimo_arquivo.txt", "w") as f:
-            f.write(nome_arquivo)
-        
-        return nome_arquivo
+    try:
+        if arquivo is not None:
+            # Criar pasta data se não existir
+            os.makedirs("data", exist_ok=True)
+            
+            # Salvar arquivo com timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            nome_arquivo = f"data/planilha_{timestamp}.xlsx"
+            
+            with open(nome_arquivo, "wb") as f:
+                f.write(arquivo.getbuffer())
+            
+            # Salvar nome do último arquivo
+            with open("data/ultimo_arquivo.txt", "w") as f:
+                f.write(nome_arquivo)
+            
+            return nome_arquivo
+    except Exception as e:
+        st.error(f"Erro ao salvar arquivo: {str(e)}")
     return None
 
 def carregar_ultima_planilha():
