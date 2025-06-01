@@ -10,7 +10,7 @@ def app(arquivo, filtros):
 
     # Configura o locale para datas em português do Brasil
     try:
-        loc.ale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+        locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
     except:
         pass
 
