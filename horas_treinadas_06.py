@@ -115,7 +115,7 @@ def app(arquivo, filtros):
                         login_row = df_acessos[(df_acessos['UsuarioID'] == usuario_id_val) & (df_acessos['LoginUsuario'].notnull())]
                         if not login_row.empty:
                             usuario_login = str(login_row.iloc[0]['LoginUsuario'])
-                st.markdown(f"<div style='text-align:center; margin-bottom: 10px;'><span style='font-size:2.5em; color:#444; font-weight: bold'>{usuario_mais_horas_valor}</span><br><span style='color:#888; font-size:1.1em;'>Usuário c/ mais horas</span><br><b style='font-size:1.1em'>{usuario_login}</b></div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='text-align:center; margin-bottom: 10px;'><span style='font-size:2.5em; color:#444; font-weight: bold'>{usuario_mais_horas_valor}</span><br><span style='color:#888; font-size:1.1em;'>Usuário com mais horas</span><br><b style='font-size:1.1em'>{usuario_login}</b></div>", unsafe_allow_html=True)
             with col3:
                 ambiente_nome = ambiente_mais_horas['NomeAmbiente'].values[0] if not ambiente_mais_horas.empty else '-'
                 st.markdown(f"<div style='text-align:center; margin-bottom: 10px;'><span style='font-size:2.5em; color:#444; font-weight: bold'>{ambiente_mais_horas_valor}</span><br><span style='color:#888; font-size:1.1em;'>Ambiente com mais horas</span><br><b style='font-size:1.1em'>{ambiente_nome}</b></div>", unsafe_allow_html=True)

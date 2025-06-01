@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 
 
 def app(arquivo, filtros):
-    st.title("Performance nos Módulos")
+    st.title("Desempenho nos Módulos")
 
     # Configura o locale para datas em português do Brasil
     try:

@@ -102,7 +102,7 @@ def app(arquivo, filtros):
                 cols = list(usuarios_cadastrados.columns)
                 if 'PerfilNaTrilha' in usuarios_cadastrados.columns and 'PerfilNaTrilha' not in cols:
                     cols.append('PerfilNaTrilha')
-                st.metric("Usuários Cadastrados (Ativos)", total_usuarios)
+                st.metric("Usuários Cadastrados", total_usuarios)
             with colg2:
                 # Garantir que PerfilNaTrilha está presente em df_acessos_filtros
                 if 'PerfilNaTrilha' not in df_acessos_filtros.columns and 'UsuarioID' in df_acessos_filtros.columns and 'UsuarioID' in df_ambientes.columns:
@@ -114,7 +114,7 @@ def app(arquivo, filtros):
                 cols = list(df_acessos_filtros.columns)
                 if 'PerfilNaTrilha' in df_acessos_filtros.columns and 'PerfilNaTrilha' not in cols:
                     cols.append('PerfilNaTrilha')
-                st.metric("Usuários c/ acesso", usuarios_com_acesso)
+                st.metric("Usuários com acesso", usuarios_com_acesso)
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.error("Sua planilha precisa ter as abas 'Acessos' e 'UsuariosAmbientes'.")

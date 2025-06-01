@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 def app(arquivo, filtros):
-    st.title("Usuários mais engajados")
+    st.title("Usuários com mais participações")
     if arquivo:
         abas = pd.read_excel(arquivo, sheet_name=None)
         if 'UsuariosAmbientes' in abas:

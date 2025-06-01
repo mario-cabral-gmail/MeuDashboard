@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 def app(arquivo, filtros):
-    st.title("Engajamento de Módulos")
+    st.title("Finalização dos Módulos")
     if arquivo:
         abas = pd.read_excel(arquivo, sheet_name=None)
         if 'UsuariosAmbientes' in abas:

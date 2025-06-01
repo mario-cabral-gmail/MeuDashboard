@@ -1,5 +1,8 @@
-streamlit
-pandas
-altair
-openpyxl
-plotly 
+streamlit==1.32.0
+pandas==2.2.1
+altair==5.2.0
+openpyxl==3.1.2
+plotly==5.19.0
+numpy==1.26.4
+python-dateutil==2.8.2
+pytz==2024.1 

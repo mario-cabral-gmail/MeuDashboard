@@ -292,7 +292,7 @@ def app(arquivo, filtros):
 
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("Usuários com Acesso", usuarios_com_acesso)
-                col2.metric("Usuários Participantes", usuarios_participantes)
+                col2.metric("Usuários com Participação", usuarios_participantes)
                 col3.metric("Total de Acessos", total_acessos)
                 col4.metric("Total de Participações", total_participacoes)
 
