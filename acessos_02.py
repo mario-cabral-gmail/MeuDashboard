@@ -261,162 +261,36 @@ def app(arquivo, filtros):
                     df_acessos_indicador = df_acessos_indicador[(df_acessos_indicador['DataAcesso'] >= data_ini) & (df_acessos_indicador['DataAcesso'] <= data_fi)]
                 usuarios_com_acesso = df_acessos_indicador['UsuarioID'].nunique()
 
-                # 3. Faça o mesmo para participações
-                df_participacoes_indicador = df_ambientes.copy()
-                if filtros.get('ambiente') and 'NomeAmbiente' in df_participacoes_indicador.columns:
-                    df_participacoes_indicador = df_participacoes_indicador[df_participacoes_indicador['NomeAmbiente'].isin(filtros['ambiente'])]
-                if filtros.get('perfil') and 'PerfilNaTrilha' in df_participacoes_indicador.columns:
-                    df_participacoes_indicador = df_participacoes_indicador[df_participacoes_indicador['PerfilNaTrilha'].isin(filtros['perfil'])]
-                if filtros.get('trilha') and 'NomeTrilha' in df_participacoes_indicador.columns:
-                    df_participacoes_indicador = df_participacoes_indicador[df_participacoes_indicador['NomeTrilha'].isin(filtros['trilha'])]
-                if filtros.get('modulo') and 'NomeModulo' in df_participacoes_indicador.columns:
-                    df_participacoes_indicador = df_participacoes_indicador[df_participacoes_indicador['NomeModulo'].isin(filtros['modulo'])]
-                if filtros.get('grupo') and 'TodosGruposUsuario' in df_participacoes_indicador.columns:
-                    df_participacoes_indicador = df_participacoes_indicador[df_participacoes_indicador['TodosGruposUsuario'].isin(filtros['grupo'])]
-                if isinstance(periodo, tuple) and len(periodo) == 2:
-                    df_participacoes_indicador['DataInicioModulo'] = pd.to_datetime(df_participacoes_indicador['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
-                    df_participacoes_indicador['DataConclusaoModulo'] = pd.to_datetime(df_participacoes_indicador['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
-                    if filtros.get('incluir_sem_data'):
-                        com_data = df_participacoes_indicador[df_participacoes_indicador['DataInicioModulo'].notna() | df_participacoes_indicador['DataConclusaoModulo'].notna()]
-                        sem_data = df_participacoes_indicador[df_participacoes_indicador['DataInicioModulo'].isna() & df_participacoes_indicador['DataConclusaoModulo'].isna()]
-                        mask_inicio = (com_data['DataInicioModulo'].notna()) & (com_data['DataInicioModulo'] >= data_ini) & (com_data['DataInicioModulo'] <= data_fi)
-                        mask_conclusao = (com_data['DataConclusaoModulo'].notna()) & (com_data['DataConclusaoModulo'] >= data_ini) & (com_data['DataConclusaoModulo'] <= data_fi)
-                        com_data_filtrado = com_data[mask_inicio | mask_conclusao]
-                        df_participacoes_indicador = pd.concat([com_data_filtrado, sem_data], ignore_index=True)
-                    else:
-                        mask_inicio = (df_participacoes_indicador['DataInicioModulo'] >= data_ini) & (df_participacoes_indicador['DataInicioModulo'] <= data_fi)
-                        mask_conclusao = (df_participacoes_indicador['DataConclusaoModulo'] >= data_ini) & (df_participacoes_indicador['DataConclusaoModulo'] <= data_fi)
-                        df_participacoes_indicador = df_participacoes_indicador[mask_inicio | mask_conclusao]
-                usuarios_participantes = df_participacoes_indicador['UsuarioID'].nunique()
-                # --- Fim do ajuste final ---
-
-                col1, col2, col3, col4 = st.columns(4)
+                col1, col2 = st.columns(2)
                 col1.metric("Usuários com Acesso", usuarios_com_acesso)
-                col2.metric("Usuários com Participação", usuarios_participantes)
-                col3.metric("Total de Acessos", total_acessos)
-                col4.metric("Total de Participações", total_participacoes)
+                col2.metric("Total de Acessos", total_acessos)
 
-                # Gerar contagem e IDs de participantes por data a partir do DataFrame deduplicado 'participantes'
-                participantes_por_data = participantes.groupby('DataParticipacao').agg({
-                    'UsuarioID': [lambda x: ', '.join(map(str, x.drop_duplicates())), 'nunique']
-                }).reset_index()
-                participantes_por_data.columns = ['DataAcesso', 'IDs_participantes', 'Usuarios_participantes']
-                participantes_por_data['DataAcesso'] = pd.to_datetime(participantes_por_data['DataAcesso'])
-                # Merge com datas_eixo para garantir todas as datas
-                usuarios_participantes = datas_eixo.merge(participantes_por_data, on='DataAcesso', how='left').fillna({'Usuarios_participantes': 0, 'IDs_participantes': ''})
-                usuarios_participantes['Usuarios_participantes'] = usuarios_participantes['Usuarios_participantes'].astype(int)
-                usuarios_participantes['data_completa'] = usuarios_participantes['DataAcesso']
-
-                # Adicionar coluna com IDs dos usuários para cada data/tipo
-                # Para acessos
+                # Gráfico apenas de Usuários com Acesso
                 ids_acesso_por_data = df_filtrado.groupby('DataAcesso')['UsuarioID'].apply(lambda x: ', '.join(map(str, x.drop_duplicates()))).reset_index(name='IDs_acesso')
                 usuarios_acesso = usuarios_acesso.merge(ids_acesso_por_data, on='DataAcesso', how='left')
-                # Para participantes
-                ids_participantes_por_data = participantes.groupby('DataParticipacao')['UsuarioID'].apply(lambda x: ', '.join(map(str, x.drop_duplicates()))).reset_index(name='IDs_participantes')
-                if 'DataParticipacao' in usuarios_participantes.columns:
-                    usuarios_participantes = usuarios_participantes.rename(columns={'DataParticipacao': 'DataAcesso'})
-                if 'data_completa' in usuarios_participantes.columns and 'DataAcesso' not in usuarios_participantes.columns:
-                    usuarios_participantes = usuarios_participantes.rename(columns={'data_completa': 'DataAcesso'})
-                if 'DataParticipacao' in ids_participantes_por_data.columns:
-                    ids_participantes_por_data = ids_participantes_por_data.rename(columns={'DataParticipacao': 'DataAcesso'})
-                # Padronizar tipo datetime64[ns] antes do merge
-                usuarios_participantes['DataAcesso'] = pd.to_datetime(usuarios_participantes['DataAcesso'])
-                ids_participantes_por_data['DataAcesso'] = pd.to_datetime(ids_participantes_por_data['DataAcesso'])
-                # Agora fazer o merge
-                usuarios_participantes = usuarios_participantes.merge(ids_participantes_por_data, on='DataAcesso', how='left')
-                # Garantir que ambos os DataFrames possuem a coluna 'data_completa' antes do merge final
-                usuarios_acesso['data_completa'] = usuarios_acesso['DataAcesso']
-                usuarios_participantes['data_completa'] = usuarios_participantes['DataAcesso']
-                # Unir para gráfico
-                consolidado_long = pd.merge(usuarios_acesso, usuarios_participantes, on='data_completa', how='outer').fillna(0)
-                # Garantir que as colunas de IDs existem antes do melt
-                if 'IDs_acesso' not in consolidado_long.columns:
-                    consolidado_long['IDs_acesso'] = ''
-                if 'IDs_participantes' not in consolidado_long.columns:
-                    consolidado_long['IDs_participantes'] = ''
-                consolidado_long = pd.melt(
-                    consolidado_long,
-                    id_vars=['data_completa'],
-                    value_vars=['Usuarios_com_acesso', 'Usuarios_participantes'],
-                    var_name='Tipo',
-                    value_name='Quantidade'
-                )
-                # Adicionar coluna de IDs para tooltip após o melt, usando get para evitar KeyError
-                def get_ids(row):
-                    if row['Tipo'] == 'Usuarios_com_acesso':
-                        return row.get('IDs_acesso', '')
-                    else:
-                        return row.get('IDs_participantes', '')
-                consolidado_long['IDs'] = consolidado_long.apply(get_ids, axis=1)
-                consolidado_long['Tipo'] = consolidado_long['Tipo'].map({
-                    'Usuarios_com_acesso': 'Usuários com acesso',
-                    'Usuarios_participantes': 'Usuários participantes'
-                })
-                # Label para o eixo X
-                consolidado_long['DataLabel'] = pd.to_datetime(consolidado_long['data_completa']).dt.strftime('%d/%m/%Y')
-                # Garantir que a coluna do eixo X está como datetime
-                consolidado_long['DataX'] = pd.to_datetime(consolidado_long['DataLabel'], dayfirst=True, errors='coerce')
+                usuarios_acesso['DataLabel'] = pd.to_datetime(usuarios_acesso['DataAcesso']).dt.strftime('%d/%m/%Y')
+                usuarios_acesso['DataX'] = pd.to_datetime(usuarios_acesso['DataLabel'], dayfirst=True, errors='coerce')
 
-                hover = alt.selection_single(
-                    fields=["DataAcesso"],
-                    nearest=True,
-                    on="mouseover",
-                    empty="none",
-                    clear="mouseout"
-                )
-
-                base = alt.Chart(consolidado_long).encode(
+                base = alt.Chart(usuarios_acesso).encode(
                     x=alt.X('DataX:T', title='Data', axis=alt.Axis(labelExpr="datum.value ? timeFormat(datum.value, '%d/%m/%Y') : ''")),
-                    color=alt.Color(
-                        'Tipo:N',
-                        title='Indicador',
-                        legend=alt.Legend(orient="bottom"),
-                        scale=alt.Scale(
-                            domain=['Usuários com acesso', 'Usuários participantes'],
-                            range=['#1f77b4', '#43A047']
-                        )
-                    ),
-                    strokeDash=alt.StrokeDash(
-                        'Tipo:N',
-                        legend=None,
-                        scale=alt.Scale(
-                            domain=['Usuários com acesso', 'Usuários participantes'],
-                            range=[[6,6], []]
-                        )
-                    )
-                )
-
-                line = base.mark_line(strokeWidth=4).encode(
-                    y=alt.Y('Quantidade:Q', title='Quantidade de usuários')
-                )
-
-                points = base.mark_circle(size=80).encode(
-                    y='Quantidade:Q',
-                    opacity=alt.value(0)
-                ).add_selection(
-                    hover
-                )
-
-                tooltips = base.mark_rule().encode(
-                    opacity=alt.condition(hover, alt.value(0.3), alt.value(0)),
+                    y=alt.Y('Usuarios_com_acesso:Q', title='Quantidade de usuários'),
                     tooltip=[
                         alt.Tooltip('DataLabel:N', title='Data'),
-                        alt.Tooltip('Tipo:N', title='Indicador'),
-                        alt.Tooltip('Quantidade:Q', title='Quantidade'),
-                        alt.Tooltip('IDs:N', title='IDs dos usuários')
+                        alt.Tooltip('Usuarios_com_acesso:Q', title='Usuários com Acesso'),
+                        alt.Tooltip('IDs_acesso:N', title='IDs dos Usuários')
                     ]
-                ).transform_filter(
-                    hover
                 )
 
-                chart = (line + points + tooltips).encode(
-                    x=alt.X('DataX:T', title='Data')
-                ).properties(
-                    width=550,
-                    height=400
+                line = base.mark_line(strokeWidth=4, color='#1f77b4')
+                points = base.mark_circle(size=80, color='#1f77b4')
+
+                chart = (line + points).properties(
+                    width=800,
+                    height=400,
+                    title='Usuários com Acesso por Dia'
                 )
 
-                st.altair_chart(chart, use_container_width=False)
+                st.altair_chart(chart, use_container_width=True)
 
         else:
             st.error("Sua planilha precisa ter as colunas 'DataAcesso' e 'UsuarioID' na aba de acessos. As colunas encontradas foram: " + str(df.columns.tolist()))
