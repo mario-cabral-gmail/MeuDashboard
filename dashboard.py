@@ -153,7 +153,7 @@ def mostrar_filtros_visao_geral(filtros_disponiveis):
     colf1, colf2, colf3, colf4, colf5, colf6, colf7, colf8 = st.columns(8)
     
     ambiente_selecionado = colf1.multiselect("Filtrar por ambiente:", filtros_disponiveis['ambientes'], key="ambiente_visao_geral")
-    perfil_selecionado = colf2.multiselect("Filtrar por perfil na trilha:", filtros_disponiveis['perfis'], default=filtros_disponiveis['default_perfis'], key="perfil_visao_geral")
+    perfil_selecionado = colf2.multiselect("Filtrar por perfil:", filtros_disponiveis['perfis'], default=filtros_disponiveis['default_perfis'], key="perfil_visao_geral")
     trilha_selecionada = colf3.multiselect("Filtrar por trilha:", filtros_disponiveis['trilhas'], key="trilha_visao_geral")
     modulo_selecionado = colf4.multiselect("Filtrar por módulo:", filtros_disponiveis['modulos'], key="modulo_visao_geral")
     grupo_selecionado = colf5.multiselect("Filtrar por grupo:", filtros_disponiveis['grupos'], key="grupo_visao_geral")
