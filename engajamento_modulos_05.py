@@ -3,7 +3,52 @@ import pandas as pd
 import plotly.graph_objects as go
 
 def app(arquivo, filtros):
-    st.title("Finalização dos Módulos")
+    st.markdown('''
+    <style>
+    .tooltip {
+      position: relative;
+      display: inline-block;
+    }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      min-width: 220px;
+      max-width: 320px;
+      background: #fff;
+      color: #222;
+      text-align: left;
+      border-radius: 8px;
+      padding: 10px 14px;
+      position: absolute;
+      z-index: 10;
+      bottom: 130%;
+      left: 50%;
+      margin-left: -110px;
+      opacity: 0;
+      box-shadow: 0 2px 12px rgba(60,60,60,0.10), 0 1.5px 4px rgba(60,60,60,0.08);
+      border: 1px solid #eee;
+      font-size: 14px !important;
+      font-weight: 400 !important;
+      line-height: 1.4;
+      transition: opacity 0.1s;
+      pointer-events: none;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    </style>
+    <h3 style="display:inline;">
+        Finalização dos Módulos
+        <span class="tooltip">
+            <b style="color:#888; font-size:1.1em; cursor:help;">&#9432;</b>
+            <span class="tooltiptext">
+                Exibe a porcentagem de módulos finalizados, pendentes e expirados.<br>
+                🕒 Considera apenas módulos com início ou conclusão dentro do período. Os status são calculados com base nesses registros.
+            </span>
+        </span>
+    </h3>
+    ''', unsafe_allow_html=True)
     if arquivo:
         abas = pd.read_excel(arquivo, sheet_name=None)
         if 'UsuariosAmbientes' in abas:

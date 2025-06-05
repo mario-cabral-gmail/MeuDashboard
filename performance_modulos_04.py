@@ -6,7 +6,50 @@ import plotly.graph_objects as go
 
 
 def app(arquivo, filtros):
-    st.title("Desempenho nos Módulos")
+    st.markdown('''
+    <style>
+    .tooltip {
+      position: relative;
+      display: inline-block;
+    }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      min-width: 220px;
+      max-width: 320px;
+      background: #fff;
+      color: #222;
+      text-align: left;
+      border-radius: 8px;
+      padding: 10px 14px;
+      position: absolute;
+      z-index: 10;
+      bottom: 130%;
+      left: 50%;
+      margin-left: -110px;
+      opacity: 0;
+      box-shadow: 0 2px 12px rgba(60,60,60,0.10), 0 1.5px 4px rgba(60,60,60,0.08);
+      border: 1px solid #eee;
+      font-size: 14px;
+      transition: opacity 0.1s;
+      pointer-events: none;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    </style>
+    <h3 style="display:inline;">
+        Desempenho nos Módulos
+        <span class="tooltip">
+            <b style="color:#888; font-size:1.1em; cursor:help;">&#9432;</b>
+            <span class="tooltiptext">
+                Mostra a quantidade de participações e o status (aprovado, reprovado, em andamento, expirado etc.).<br>
+                🕒 O filtro de período considera registros com início ou conclusão do módulo dentro do intervalo selecionado.
+            </span>
+        </span>
+    </h3>
+    ''', unsafe_allow_html=True)
 
     # Configura o locale para datas em português do Brasil
     try:
@@ -130,10 +173,17 @@ def app(arquivo, filtros):
             df_graf['DataX'] = pd.to_datetime(df_graf['DataParticipacao'])
             # Indicadores dinâmicos para os status presentes
             status_nomes = {
-                'Aprovado': 'Aprov.',
+                'Aprovado': 'Aprovado',
                 'Em Andamento': 'Andam.',
-                'Reprovado': 'Reprov.',
-                'Módulos Expirados': 'Expir.'
+                'Reprovado': 'Reprovado',
+                'Módulos Expirados': 'Expirado',
+                'Expirado (Não Realizado)': 'Expirado',
+                'Aprovado Fora do Prazo': 'Aprov. Fora Prazo',
+                'Reprovado Fora do Prazo': 'Reprov. Fora Prazo',
+                'Aguardando Correção': 'Aguard. Correção',
+                'Não Iniciado': 'Não Iniciado',
+                'Não Liberado': 'Não Liberado',
+                'Dispensado': 'Dispensado'
             }
             # Gerar labels, valores e cores apenas para os status presentes
             status_presentes = part['StatusAjustado'].value_counts().index.tolist()
