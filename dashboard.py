@@ -153,7 +153,7 @@ def mostrar_filtros_visao_geral(filtros_disponiveis):
     colf1, colf2, colf3, colf4, colf5, colf6, colf7, colf8 = st.columns(8)
     
     ambiente_selecionado = colf1.multiselect("Filtrar por ambiente:", filtros_disponiveis['ambientes'], key="ambiente_visao_geral")
-    perfil_selecionado = colf2.multiselect("Filtrar por perfil na trilha:", filtros_disponiveis['perfis'], default=filtros_disponiveis['default_perfis'], key="perfil_visao_geral")
+    perfil_selecionado = colf2.multiselect("Filtrar por perfil:", filtros_disponiveis['perfis'], default=filtros_disponiveis['default_perfis'], key="perfil_visao_geral")
     trilha_selecionada = colf3.multiselect("Filtrar por trilha:", filtros_disponiveis['trilhas'], key="trilha_visao_geral")
     modulo_selecionado = colf4.multiselect("Filtrar por módulo:", filtros_disponiveis['modulos'], key="modulo_visao_geral")
     grupo_selecionado = colf5.multiselect("Filtrar por grupo:", filtros_disponiveis['grupos'], key="grupo_visao_geral")
@@ -246,21 +246,26 @@ if arquivo_atual:
         
         with tab1:
             st.header("Visão Geral")
+            st.markdown("""
+            Painel com os principais dados sobre desempenho nos treinamentos: participações, finalizações, horas dedicadas e usuários ou ambientes mais ativos. Use os filtros para explorar os resultados por perfil, trilha, módulo ou período.
+            
+            Para mais informações sobre este relatório, clique aqui.
+            """)
             filtros_visao_geral = mostrar_filtros_visao_geral(filtros_disponiveis)
             
-            # Primeira linha de gráficos
-            col_g4, col_g5, col_g6 = st.columns(3)
+            # Primeira linha de gráficos: 04 e 05, proporção 60/40
+            col_g4, col_g5 = st.columns([3,2])
             with col_g4:
                 performance_modulos.app(arquivo_atual, filtros_visao_geral)
             with col_g5:
                 engajamento_modulos.app(arquivo_atual, filtros_visao_geral)
-            with col_g6:
-                horas_treinadas.app(arquivo_atual, filtros_visao_geral)
             
             st.markdown('---')
             
-            # Segunda linha de gráficos
-            col_g7, col_g8 = st.columns(2)
+            # Segunda linha de gráficos: 06, 07 e 08
+            col_g6, col_g7, col_g8 = st.columns(3)
+            with col_g6:
+                horas_treinadas.app(arquivo_atual, filtros_visao_geral)
             with col_g7:
                 ambientes_mais_participacoes.app(arquivo_atual, filtros_visao_geral)
             with col_g8:
@@ -268,6 +273,11 @@ if arquivo_atual:
         
         with tab2:
             st.header("Acessos")
+            st.markdown("""
+            Mostra como os usuários estão acessando a trilha: nível de engajamento, frequência de acessos e tipo de dispositivo usado. Ideal para entender o comportamento de uso ao longo do tempo.
+            
+            Para mais informações sobre este relatório, clique aqui.
+            """)
             filtros_acessos = mostrar_filtros_acessos(filtros_disponiveis)
             
             # Gráficos de acessos
