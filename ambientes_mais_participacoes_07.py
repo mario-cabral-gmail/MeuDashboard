@@ -50,7 +50,11 @@ def app(arquivo, filtros):
     </h3>
     ''', unsafe_allow_html=True)
     if arquivo:
-        abas = pd.read_excel(arquivo, sheet_name=None)
+        # Suportar tanto arquivo Excel quanto dicionário com DataFrames
+        if isinstance(arquivo, dict):
+            abas = arquivo
+        else:
+            abas = pd.read_excel(arquivo, sheet_name=None)
         if 'UsuariosAmbientes' in abas:
             df_ambientes = abas['UsuariosAmbientes']
             # Filtrar apenas usuários ativos se possível
@@ -80,8 +84,8 @@ def app(arquivo, filtros):
             periodo = filtros.get('periodo')
             if periodo and isinstance(periodo, tuple) and len(periodo) == 2:
                 data_ini, data_fi = pd.to_datetime(periodo[0], format='%d/%m/%Y'), pd.to_datetime(periodo[1], format='%d/%m/%Y')
-                df_ambientes['DataInicioModulo'] = pd.to_datetime(df_ambientes['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
-                df_ambientes['DataConclusaoModulo'] = pd.to_datetime(df_ambientes['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
+                df_ambientes['DataInicioModulo'] = pd.to_datetime(df_ambientes['DataInicioModulo'], dayfirst=True, errors='coerce')
+                df_ambientes['DataConclusaoModulo'] = pd.to_datetime(df_ambientes['DataConclusaoModulo'], dayfirst=True, errors='coerce')
                 if filtros.get('incluir_sem_data'):
                     com_data = df_ambientes[df_ambientes['DataInicioModulo'].notna() | df_ambientes['DataConclusaoModulo'].notna()]
                     sem_data = df_ambientes[df_ambientes['DataInicioModulo'].isna() & df_ambientes['DataConclusaoModulo'].isna()]
@@ -99,8 +103,8 @@ def app(arquivo, filtros):
                 part = df_ambientes.drop_duplicates(subset=['UsuarioID', 'NomeAmbiente', 'NomeModulo'])
             else:
                 part = df_ambientes.dropna(subset=['DataInicioModulo', 'DataConclusaoModulo'], how='all').drop_duplicates(subset=['UsuarioID', 'NomeAmbiente', 'NomeModulo'])
-            part['DataInicioModulo'] = pd.to_datetime(part['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
-            part['DataConclusaoModulo'] = pd.to_datetime(part['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
+            part['DataInicioModulo'] = pd.to_datetime(part['DataInicioModulo'], dayfirst=True, errors='coerce')
+            part['DataConclusaoModulo'] = pd.to_datetime(part['DataConclusaoModulo'], dayfirst=True, errors='coerce')
             participacoes = part.groupby('NomeAmbiente').size()
             aprov = part[part['StatusModulo'] == 'Aprovado']
             aprovacoes = aprov.groupby('NomeAmbiente').size()

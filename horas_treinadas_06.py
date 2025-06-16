@@ -50,7 +50,11 @@ def app(arquivo, filtros):
     </h3>
     ''', unsafe_allow_html=True)
     if arquivo:
-        abas = pd.read_excel(arquivo, sheet_name=None)
+        # Suportar tanto arquivo Excel quanto dicionário com DataFrames
+        if isinstance(arquivo, dict):
+            abas = arquivo
+        else:
+            abas = pd.read_excel(arquivo, sheet_name=None)
         if 'UsuariosAmbientes' in abas:
             df_ambientes = abas['UsuariosAmbientes']
             # Filtrar apenas usuários ativos se possível
@@ -88,9 +92,9 @@ def app(arquivo, filtros):
             except Exception:
                 st.warning("Não foi possível converter 'TempoAcessoModuloEmHoras' para duração.")
                 return
-            # Conversão das datas dos módulos (SEM hora)
-            df_filtros['DataInicioModulo'] = pd.to_datetime(df_filtros['DataInicioModulo'], format='%d/%m/%Y', errors='coerce')
-            df_filtros['DataConclusaoModulo'] = pd.to_datetime(df_filtros['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce')
+            # Conversão das datas dos módulos (com ou sem hora)
+            df_filtros['DataInicioModulo'] = pd.to_datetime(df_filtros['DataInicioModulo'], dayfirst=True, errors='coerce')
+            df_filtros['DataConclusaoModulo'] = pd.to_datetime(df_filtros['DataConclusaoModulo'], dayfirst=True, errors='coerce')
             # Filtro de período
             if filtros.get('periodo') and (isinstance(filtros['periodo'], list) or isinstance(filtros['periodo'], tuple)) and len(filtros['periodo']) == 2:
                 data_inicio_filtro = pd.to_datetime(filtros['periodo'][0], format='%d/%m/%Y')

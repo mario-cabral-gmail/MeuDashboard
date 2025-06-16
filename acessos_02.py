@@ -60,9 +60,13 @@ def app(arquivo, filtros):
         pass
 
     if arquivo:
-        abas = pd.read_excel(arquivo, sheet_name=None)
+        # Suportar tanto arquivo Excel quanto dicionário com DataFrames
+        if isinstance(arquivo, dict):
+            abas = arquivo
+        else:
+            abas = pd.read_excel(arquivo, sheet_name=None)
 
-        if 'Acessos' in abas and 'UsuariosAmbientes' in abas:
+        if 'UsuariosAmbientes' in abas and 'Acessos' in abas:
             df_acessos = abas['Acessos']
             # Filtrar apenas usuários ativos
             if 'StatusUsuario' in df_acessos.columns:
@@ -93,9 +97,9 @@ def app(arquivo, filtros):
                 data_fim_total = df['DataAcesso'].max()
 
                 if 'DataInicioModulo' in df_ambientes.columns:
-                    df_ambientes['DataInicioModulo'] = pd.to_datetime(df_ambientes['DataInicioModulo'], format='%d/%m/%Y', errors='coerce').dt.normalize()
+                    df_ambientes['DataInicioModulo'] = pd.to_datetime(df_ambientes['DataInicioModulo'], dayfirst=True, errors='coerce').dt.normalize()
                 if 'DataConclusaoModulo' in df_ambientes.columns:
-                    df_ambientes['DataConclusaoModulo'] = pd.to_datetime(df_ambientes['DataConclusaoModulo'], format='%d/%m/%Y', errors='coerce').dt.normalize()
+                    df_ambientes['DataConclusaoModulo'] = pd.to_datetime(df_ambientes['DataConclusaoModulo'], dayfirst=True, errors='coerce').dt.normalize()
 
                 # Inicializar participacoes_inicio para evitar erro de variável não definida
                 participacoes_inicio = pd.DataFrame()

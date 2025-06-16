@@ -58,7 +58,11 @@ def app(arquivo, filtros):
         pass
 
     if arquivo:
-        abas = pd.read_excel(arquivo, sheet_name=None)
+        # Suportar tanto arquivo Excel quanto dicionário com DataFrames
+        if isinstance(arquivo, dict):
+            abas = arquivo
+        else:
+            abas = pd.read_excel(arquivo, sheet_name=None)
         if 'UsuariosAmbientes' in abas:
             df_ambientes = abas['UsuariosAmbientes']
             # Filtrar apenas usuários ativos se possível
@@ -84,6 +88,13 @@ def app(arquivo, filtros):
                 df_acessos = abas['Acessos']
                 usuarios_filtrados = df_acessos[df_acessos['StatusUsuario'].isin(filtros['status_usuario'])]['UsuarioID'].unique()
                 df_ambientes = df_ambientes[df_ambientes['UsuarioID'].isin(usuarios_filtrados)]
+            
+            # Processar datas dos módulos (com ou sem hora)
+            if 'DataInicioModulo' in df_ambientes.columns:
+                df_ambientes['DataInicioModulo'] = pd.to_datetime(df_ambientes['DataInicioModulo'], dayfirst=True, errors='coerce')
+            if 'DataConclusaoModulo' in df_ambientes.columns:
+                df_ambientes['DataConclusaoModulo'] = pd.to_datetime(df_ambientes['DataConclusaoModulo'], dayfirst=True, errors='coerce')
+            
             # Considerar como participação quem tem pelo menos uma das datas (DataInicioModulo ou DataConclusaoModulo) preenchida
             if filtros.get('incluir_sem_data'):
                 # Todos os pares únicos
@@ -93,6 +104,7 @@ def app(arquivo, filtros):
                 part.loc[mask_sem_data, 'StatusModulo'] = part.loc[mask_sem_data, 'StatusModulo'].fillna('Expirado (Não Realizado)')
             else:
                 part = df_ambientes.dropna(subset=['DataInicioModulo', 'DataConclusaoModulo'], how='all').drop_duplicates(subset=['UsuarioID', 'NomeModulo'])
+            
             # Conversão explícita das datas com formato correto
             part['DataParticipacao'] = pd.to_datetime(part['DataConclusaoModulo'].combine_first(part['DataInicioModulo']))
             part['DataParticipacao'] = part['DataParticipacao'].dt.date if part['DataParticipacao'].notna().any() else part['DataParticipacao']
@@ -178,8 +190,7 @@ def app(arquivo, filtros):
                 'Reprovado': 'Reprovado',
                 'Módulos Expirados': 'Expirado',
                 'Expirado (Não Realizado)': 'Expirado',
-                'Aprovado Fora do Prazo': 'Aprov. Fora Prazo',
-                'Reprovado Fora do Prazo': 'Reprov. Fora Prazo',
+                'Fora do Prazo': 'Fora do Prazo',
                 'Aguardando Correção': 'Aguard. Correção',
                 'Não Iniciado': 'Não Iniciado',
                 'Não Liberado': 'Não Liberado',
@@ -220,8 +231,7 @@ def app(arquivo, filtros):
             cores_status = {
                 'Aprovado': '#2ecc71',
                 'Reprovado': '#e74c3c',
-                'Aprovado Fora do Prazo': '#3498db',
-                'Reprovado Fora do Prazo': '#9b59b6',
+                'Fora do Prazo': '#f39c12',
                 'Expirado (Não Realizado)': '#16a085',
                 'Aguardando Correção': '#f1c40f',
                 'Em Andamento': '#e67e22',
@@ -233,8 +243,7 @@ def app(arquivo, filtros):
             status_nomes = {
                 'Aprovado': 'Aprov.',
                 'Reprovado': 'Reprov.',
-                'Aprovado Fora do Prazo': 'Aprov. Fora Prazo',
-                'Reprovado Fora do Prazo': 'Reprov. Fora Prazo',
+                'Fora do Prazo': 'Fora do Prazo',
                 'Expirado (Não Realizado)': 'Expirado',
                 'Aguardando Correção': 'Aguard. Correção',
                 'Em Andamento': 'Andam.',

@@ -56,7 +56,11 @@ def app(arquivo, filtros):
     except:
         pass
     if arquivo:
-        abas = pd.read_excel(arquivo, sheet_name=None)
+        # Suportar tanto arquivo Excel quanto dicionário com DataFrames
+        if isinstance(arquivo, dict):
+            abas = arquivo
+        else:
+            abas = pd.read_excel(arquivo, sheet_name=None)
         if 'Acessos' in abas and 'UsuariosAmbientes' in abas:
             df_acessos = abas['Acessos']
             # Filtrar apenas usuários ativos
