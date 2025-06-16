@@ -24,60 +24,92 @@ st.set_page_config(
 
 # Configuração de cache para melhor performance
 @st.cache_data(ttl=3600)
-def load_excel_data(file):
-    return pd.read_excel(file, sheet_name=None)
+def load_single_sheet_data(file):
+    return pd.read_excel(file)
 
-@st.cache_data(ttl=3600)
-def process_data(abas):
-    if 'UsuariosAmbientes' in abas and 'Acessos' in abas:
-        return abas['UsuariosAmbientes'], abas['Acessos']
-    return None, None
-
-def salvar_planilha(arquivo):
-    """Salva a planilha carregada na pasta data"""
+def salvar_planilhas(arquivo_usuarios, arquivo_acessos):
+    """Salva as planilhas carregadas na pasta data"""
     try:
-        if arquivo is not None:
-            # Criar pasta data se não existir
-            os.makedirs("data", exist_ok=True)
-            
-            # Salvar arquivo com timestamp
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            nome_arquivo = f"data/planilha_{timestamp}.xlsx"
-            
+        # Criar pasta data se não existir
+        os.makedirs("data", exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        arquivos_salvos = {}
+        
+        if arquivo_usuarios is not None:
+            nome_arquivo = f"data/usuarios_ambientes_{timestamp}.xlsx"
             with open(nome_arquivo, "wb") as f:
-                f.write(arquivo.getbuffer())
+                f.write(arquivo_usuarios.getbuffer())
+            arquivos_salvos['usuarios'] = nome_arquivo
             
-            # Salvar nome do último arquivo
-            with open("data/ultimo_arquivo.txt", "w") as f:
-                f.write(nome_arquivo)
-            
-            return nome_arquivo
+        if arquivo_acessos is not None:
+            nome_arquivo = f"data/acessos_{timestamp}.xlsx"
+            with open(nome_arquivo, "wb") as f:
+                f.write(arquivo_acessos.getbuffer())
+            arquivos_salvos['acessos'] = nome_arquivo
+        
+        # Salvar informações dos últimos arquivos
+        with open("data/ultimos_arquivos.txt", "w") as f:
+            for tipo, caminho in arquivos_salvos.items():
+                f.write(f"{tipo}:{caminho}\n")
+        
+        return arquivos_salvos
     except Exception as e:
         st.error(f"Erro ao salvar arquivo: {str(e)}")
-    return None
+    return {}
 
-def carregar_ultima_planilha():
-    """Carrega a última planilha salva"""
+def carregar_ultimas_planilhas():
+    """Carrega as últimas planilhas salvas"""
     try:
-        if os.path.exists("data/ultimo_arquivo.txt"):
-            with open("data/ultimo_arquivo.txt", "r") as f:
-                ultimo_arquivo = f.read().strip()
-                if os.path.exists(ultimo_arquivo):
-                    return ultimo_arquivo
+        arquivos = {}
+        if os.path.exists("data/ultimos_arquivos.txt"):
+            with open("data/ultimos_arquivos.txt", "r") as f:
+                for linha in f:
+                    if ':' in linha:
+                        tipo, caminho = linha.strip().split(':', 1)
+                        if os.path.exists(caminho):
+                            arquivos[tipo] = caminho
+        return arquivos
     except Exception as e:
-        st.warning(f"Erro ao carregar última planilha: {str(e)}")
-    return None
+        st.warning(f"Erro ao carregar últimas planilhas: {str(e)}")
+    return {}
 
-def get_filtros_gerais(arquivo):
-    """Retorna todos os filtros disponíveis"""
-    if isinstance(arquivo, str):
-        abas = pd.read_excel(arquivo, sheet_name=None)
-    else:
-        abas = pd.read_excel(arquivo, sheet_name=None)
+def processar_datas_modulos(df):
+    """Processa as datas dos módulos, suportando formato com e sem hora"""
+    if 'DataInicioModulo' in df.columns:
+        # Tentar primeiro com formato de data e hora
+        df['DataInicioModulo'] = pd.to_datetime(df['DataInicioModulo'], dayfirst=True, errors='coerce')
+        # Se não funcionou, tentar formato apenas data
+        mask_nulos = df['DataInicioModulo'].isna()
+        if mask_nulos.any():
+            df.loc[mask_nulos, 'DataInicioModulo'] = pd.to_datetime(
+                df.loc[mask_nulos, 'DataInicioModulo'], 
+                format='%d/%m/%Y', 
+                errors='coerce'
+            )
     
-    if 'UsuariosAmbientes' in abas and 'Acessos' in abas:
-        df_ambientes = abas['UsuariosAmbientes']
-        df_acessos = abas['Acessos']
+    if 'DataConclusaoModulo' in df.columns:
+        # Tentar primeiro com formato de data e hora
+        df['DataConclusaoModulo'] = pd.to_datetime(df['DataConclusaoModulo'], dayfirst=True, errors='coerce')
+        # Se não funcionou, tentar formato apenas data
+        mask_nulos = df['DataConclusaoModulo'].isna()
+        if mask_nulos.any():
+            df.loc[mask_nulos, 'DataConclusaoModulo'] = pd.to_datetime(
+                df.loc[mask_nulos, 'DataConclusaoModulo'], 
+                format='%d/%m/%Y', 
+                errors='coerce'
+            )
+    
+    return df
+
+def get_filtros_gerais(dados_usuarios, dados_acessos):
+    """Retorna todos os filtros disponíveis a partir dos DataFrames"""
+    if dados_usuarios is not None and dados_acessos is not None:
+        df_ambientes = dados_usuarios.copy()
+        df_acessos = dados_acessos.copy()
+        
+        # Processar datas dos módulos
+        df_ambientes = processar_datas_modulos(df_ambientes)
         
         # Verificações de colunas essenciais
         colunas_essenciais_acessos = ['DataAcesso', 'UsuarioID']
@@ -85,11 +117,11 @@ def get_filtros_gerais(arquivo):
         
         for col in colunas_essenciais_acessos:
             if col not in df_acessos.columns:
-                st.error(f"A coluna '{col}' não foi encontrada na aba 'Acessos'.")
+                st.error(f"A coluna '{col}' não foi encontrada nos dados de 'Acessos'.")
                 return None
         for col in colunas_essenciais_ambientes:
             if col not in df_ambientes.columns:
-                st.error(f"A coluna '{col}' não foi encontrada na aba 'UsuariosAmbientes'.")
+                st.error(f"A coluna '{col}' não foi encontrada nos dados de 'UsuariosAmbientes'.")
                 return None
         
         # Preparação dos dados para filtros
@@ -103,30 +135,28 @@ def get_filtros_gerais(arquivo):
         
         # Cálculo do período
         datas_acesso = pd.to_datetime(df_acessos['DataAcesso'], dayfirst=True, errors='coerce').dropna()
-        datas_inicio_modulo = pd.to_datetime(df_ambientes['DataInicioModulo'], format='%d/%m/%Y', errors='coerce').dropna() if 'DataInicioModulo' in df_ambientes.columns else pd.Series([])
+        datas_inicio_modulo = df_ambientes['DataInicioModulo'].dropna() if 'DataInicioModulo' in df_ambientes.columns else pd.Series([])
         data_inicio_total = min(datas_acesso.min(), datas_inicio_modulo.min()) if not datas_inicio_modulo.empty else datas_acesso.min()
         data_fim_total = max(datas_acesso.max(), datas_inicio_modulo.max()) if not datas_inicio_modulo.empty else datas_acesso.max()
         data_inicio_total = pd.to_datetime(data_inicio_total).date()
         data_fim_total = pd.to_datetime(data_fim_total).date()
         
-        ano_atual = data_fim_total.year
+        # Usar data atual para cálculos de períodos recentes
+        data_hoje = pd.to_datetime('today').date()
+        
+        ano_atual = data_hoje.year
         ano_passado = ano_atual - 1
         inicio_ano_atual = pd.to_datetime(f"01/01/{ano_atual}", dayfirst=True).date()
         fim_ano_atual = pd.to_datetime(f"31/12/{ano_atual}", dayfirst=True).date()
         inicio_ano_passado = pd.to_datetime(f"01/01/{ano_passado}", dayfirst=True).date()
         fim_ano_passado = pd.to_datetime(f"31/12/{ano_passado}", dayfirst=True).date()
         
-        inicio_ano_atual = max(inicio_ano_atual, data_inicio_total)
-        fim_ano_atual = min(fim_ano_atual, data_fim_total)
-        inicio_ano_passado = max(inicio_ano_passado, data_inicio_total)
-        fim_ano_passado = min(fim_ano_passado, data_fim_total)
-        
         opcoes_periodo = {
             'Período completo': (data_inicio_total, data_fim_total),
-            'Últimos 7 dias': (data_fim_total - pd.Timedelta(days=6), data_fim_total),
-            'Últimos 30 dias': (data_fim_total - pd.Timedelta(days=29), data_fim_total),
-            'Este mês': (data_fim_total.replace(day=1), data_fim_total),
-            'Mês passado': ((data_fim_total.replace(day=1) - pd.Timedelta(days=1)).replace(day=1), data_fim_total.replace(day=1) - pd.Timedelta(days=1)),
+            'Últimos 7 dias': (data_hoje - pd.Timedelta(days=6), data_hoje + pd.Timedelta(days=1)),
+            'Últimos 30 dias': (data_hoje - pd.Timedelta(days=29), data_hoje + pd.Timedelta(days=1)),
+            'Este mês': (data_hoje.replace(day=1), data_hoje),
+            'Mês passado': ((data_hoje.replace(day=1) - pd.Timedelta(days=1)).replace(day=1), data_hoje.replace(day=1) - pd.Timedelta(days=1)),
             'Este ano': (inicio_ano_atual, fim_ano_atual),
             'Ano passado': (inicio_ano_passado, fim_ano_passado),
             'Personalizado': None
@@ -145,7 +175,7 @@ def get_filtros_gerais(arquivo):
             'data_fim_total': data_fim_total
         }
     else:
-        st.error("Sua planilha precisa ter as abas 'UsuariosAmbientes' e 'Acessos'.")
+        st.error("É necessário carregar os dados de 'UsuariosAmbientes' e 'Acessos'.")
         return None
 
 def mostrar_filtros_visao_geral(filtros_disponiveis):
@@ -217,29 +247,69 @@ def mostrar_filtros_acessos(filtros_disponiveis):
         "incluir_sem_data": False
     }
 
-# Carregar última planilha se existir
-ultima_planilha = carregar_ultima_planilha()
+# Interface de upload flexível
+st.header("📊 Dashboard de Acessos")
+st.markdown("---")
 
-# Upload de nova planilha
-arquivo = st.file_uploader("Faça upload da planilha Excel", type=["xlsx"])
+dados_usuarios = None
+dados_acessos = None
 
-# Se houver upload de nova planilha, salva e usa ela
-if arquivo:
-    nome_arquivo = salvar_planilha(arquivo)
-    arquivo_atual = arquivo
-# Se não houver upload mas existir última planilha, usa ela
-elif ultima_planilha:
-    arquivo_atual = ultima_planilha
-    st.success("Carregando última planilha salva...")
-# Se não houver upload nem última planilha, tenta carregar data/Carga.xlsx
-elif os.path.exists("data/Carga.xlsx"):
-    arquivo_atual = "data/Carga.xlsx"
-    st.info("Carregando planilha padrão: data/Carga.xlsx")
-else:
-    arquivo_atual = None
+# Tentar carregar dados salvos automaticamente
+ultimas_planilhas = carregar_ultimas_planilhas()
+if ultimas_planilhas and 'usuarios' in ultimas_planilhas and 'acessos' in ultimas_planilhas:
+    try:
+        dados_usuarios = pd.read_excel(ultimas_planilhas['usuarios'])
+        dados_acessos = pd.read_excel(ultimas_planilhas['acessos'])
+        st.success("✅ Dados carregados automaticamente da última sessão!")
+    except Exception as e:
+        st.warning(f"⚠️ Erro ao carregar dados salvos: {str(e)}")
 
-if arquivo_atual:
-    filtros_disponiveis = get_filtros_gerais(arquivo_atual)
+# Interface de upload de planilhas separadas
+st.subheader("📋 Carregar Dados")
+
+col1, col2 = st.columns(2)
+
+with col1:
+    st.info("👥 Dados de Usuários e Ambientes")
+    arquivo_usuarios = st.file_uploader(
+        "Upload da planilha UsuariosAmbientes", 
+        type=["xlsx"], 
+        key="usuarios"
+    )
+    
+    if arquivo_usuarios:
+        try:
+            dados_usuarios = load_single_sheet_data(arquivo_usuarios)
+            st.success("✅ Dados de usuários carregados!")
+        except Exception as e:
+            st.error(f"❌ Erro ao carregar dados de usuários: {str(e)}")
+
+with col2:
+    st.info("🔐 Dados de Acessos")
+    arquivo_acessos = st.file_uploader(
+        "Upload da planilha Acessos", 
+        type=["xlsx"], 
+        key="acessos"
+    )
+    
+    if arquivo_acessos:
+        try:
+            dados_acessos = load_single_sheet_data(arquivo_acessos)
+            st.success("✅ Dados de acessos carregados!")
+        except Exception as e:
+            st.error(f"❌ Erro ao carregar dados de acessos: {str(e)}")
+
+# Salvar arquivos automaticamente quando ambos forem carregados
+if arquivo_usuarios and arquivo_acessos and dados_usuarios is not None and dados_acessos is not None:
+    arquivos_salvos = salvar_planilhas(
+        arquivo_usuarios=arquivo_usuarios, 
+        arquivo_acessos=arquivo_acessos
+    )
+    st.success("💾 Dados salvos automaticamente para a próxima sessão!")
+
+# Processar dados se disponíveis
+if dados_usuarios is not None and dados_acessos is not None:
+    filtros_disponiveis = get_filtros_gerais(dados_usuarios, dados_acessos)
     if filtros_disponiveis is not None:
         # Criar as abas
         tab1, tab2 = st.tabs(["Visão Geral", "Acessos"])
@@ -256,20 +326,20 @@ if arquivo_atual:
             # Primeira linha de gráficos: 04 e 05, proporção 60/40
             col_g4, col_g5 = st.columns([3,2])
             with col_g4:
-                performance_modulos.app(arquivo_atual, filtros_visao_geral)
+                performance_modulos.app({'UsuariosAmbientes': dados_usuarios, 'Acessos': dados_acessos}, filtros_visao_geral)
             with col_g5:
-                engajamento_modulos.app(arquivo_atual, filtros_visao_geral)
+                engajamento_modulos.app({'UsuariosAmbientes': dados_usuarios, 'Acessos': dados_acessos}, filtros_visao_geral)
             
             st.markdown('---')
             
             # Segunda linha de gráficos: 06, 07 e 08
             col_g6, col_g7, col_g8 = st.columns(3)
             with col_g6:
-                horas_treinadas.app(arquivo_atual, filtros_visao_geral)
+                horas_treinadas.app({'UsuariosAmbientes': dados_usuarios, 'Acessos': dados_acessos}, filtros_visao_geral)
             with col_g7:
-                ambientes_mais_participacoes.app(arquivo_atual, filtros_visao_geral)
+                ambientes_mais_participacoes.app({'UsuariosAmbientes': dados_usuarios, 'Acessos': dados_acessos}, filtros_visao_geral)
             with col_g8:
-                usuarios_mais_engajados.app(arquivo_atual, filtros_visao_geral)
+                usuarios_mais_engajados.app({'UsuariosAmbientes': dados_usuarios, 'Acessos': dados_acessos}, filtros_visao_geral)
         
         with tab2:
             st.header("Acessos")
@@ -283,10 +353,10 @@ if arquivo_atual:
             # Gráficos de acessos
             col1, col2, col3 = st.columns(3)
             with col1:
-                engajamento.app(arquivo_atual, filtros_acessos)
+                engajamento.app({'UsuariosAmbientes': dados_usuarios, 'Acessos': dados_acessos}, filtros_acessos)
             with col2:
-                acessos.app(arquivo_atual, filtros_acessos)
+                acessos.app({'UsuariosAmbientes': dados_usuarios, 'Acessos': dados_acessos}, filtros_acessos)
             with col3:
-                acessos_dispositivo.app(arquivo_atual, filtros_acessos)
+                acessos_dispositivo.app({'UsuariosAmbientes': dados_usuarios, 'Acessos': dados_acessos}, filtros_acessos)
 else:
-    st.info("Por favor, faça upload da planilha Excel original.")
+    st.info("📋 Para começar, faça upload das duas planilhas acima ou aguarde o carregamento automático dos dados salvos.")
